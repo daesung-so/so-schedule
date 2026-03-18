@@ -500,7 +500,7 @@ function pinKey(k){
   if(pinBuffer.length>=4) return;
   pinBuffer+=k;
   updatePinDots();
-  if(pinBuffer.length===4) setTimeout(checkPin,120);
+  if(pinBuffer.length===4) checkPin();
 }
 function pinDel(){
   pinBuffer=pinBuffer.slice(0,-1);
