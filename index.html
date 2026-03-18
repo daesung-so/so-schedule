@@ -956,7 +956,7 @@ function renderDaily(day){
     <div class="d-body">
       <div class="card">
         <div class="card-head">
-          <span class="card-title">근무 현황 &nbsp;<span style="color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.3px;">주간 ${g.core.length+g.svc.length+g.work.length+g.jakgum.length+g.gobul.length}명</span><span style="color:var(--text3);font-size:11px;"> · </span><span style="color:var(--purple);font-size:11px;font-weight:700;letter-spacing:.3px;">야간 ${g.night.length}명</span></span>
+          <span class="card-title" style="font-size:12px;letter-spacing:0;">근무 현황 &nbsp;<span style="color:var(--accent);font-size:12px;font-weight:700;">주간 ${g.core.length+g.svc.length+g.work.length+g.jakgum.length+g.gobul.length}명</span><span style="color:var(--text3);font-size:12px;"> · </span><span style="color:var(--purple);font-size:12px;font-weight:700;">야간 ${g.night.length}명</span></span>
           <button class="cbtn" id="d-cbtn" onclick="dailyCopy()">문자 복사</button>
         </div>
         ${shiftRows(g)}
