@@ -861,6 +861,9 @@ function groups(day){
 
 function msgText(day,g){
   const dow=DOW[(START+day-1)%7];
+  const isWeekend=(START+day-1)%7===0||(START+day-1)%7===6;
+  const isHday=isHoliday(day);
+  const showVacation=!isWeekend&&!isHday;
   let t=`[${CUR_MONTH}/${day}[${dow}] 근무현황]`;
   const f=arr=>arr.map(e=>e.num?`${e.name}(${e.num})`:e.name).join(', ');
   if(g.core.length)t+=`\nㅇCore: ${f(g.core)}`;
@@ -868,7 +871,7 @@ function msgText(day,g){
   if(g.gobul.length)t+=`\nㅇ고불: ${f(g.gobul)}`;
   if(g.rest.length)t+=`\nㅇ숙휴: ${f(g.rest)}`;
   if(g.night.length)t+=`\nㅇ야근: ${f(g.night)}`;
-  if(g.vacation.length)t+=`\nㅇ휴가: ${f(g.vacation)}`;
+  if(showVacation&&g.vacation.length)t+=`\nㅇ휴가: ${f(g.vacation)}`;
   if(g.work.length)t+=`\nㅇ작업: ${f(g.work)}`;
   if(g.jakgum.length)t+=`\nㅇ작검: ${f(g.jakgum)}`;
   if(g.trip.length)t+=`\nㅇ출장: ${f(g.trip)}`;
