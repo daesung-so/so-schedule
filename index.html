@@ -544,7 +544,7 @@ function getToday(){
 }
 let TODAY=getToday();
 let activeTab='daily', selCalDay=null, gridFlt='all', popupDay=null;
-let calShowSched=true; // 달력 근무표 표시 여부
+let calShowSched=false; // 달력 근무표 표시 여부 (기본 OFF)
 let curDay=TODAY;
 let smsDayOverride=null;
 
@@ -1174,12 +1174,10 @@ function renderCalendar(){
     const deadlines=getNoticeDeadlinesForMonth();
     const dayDeadlines=deadlines[selCalDay]||[];
     const deadlineBanner=dayDeadlines.length?`<div style="margin:0 0 8px;background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;">
-      ${dayDeadlines.map(i=>`<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;">
-        <div style="width:4px;min-height:36px;border-radius:4px;background:${i.type==='vote'?'var(--green)':'var(--accent)'};flex-shrink:0;margin-top:2px;"></div>
-        <div>
-          <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px;">${i.title}</div>
-          ${i.content?`<div style="font-size:12px;color:var(--text3);line-height:1.5;">${i.content.replace(/\n/g,'<br>')}</div>`:''}
-        </div>
+      ${dayDeadlines.map(i=>`<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;cursor:pointer;" onclick="goToBoard(${i.id})">
+        <div style="width:4px;min-height:20px;border-radius:4px;background:${i.type==='vote'?'var(--green)':'var(--accent)'};flex-shrink:0;align-self:stretch;"></div>
+        <div style="font-size:13px;font-weight:700;color:var(--accent);flex:1;">${i.title}</div>
+        <div style="font-size:11px;color:var(--text3);">보기 ›</div>
       </div>`).join('')}
     </div>`:'';
     detail=`${banner}${deadlineBanner}${calShowSched?`<div class="cal-detail">
@@ -1206,8 +1204,9 @@ function renderCalendar(){
 
   if(selCalDay){
     setTimeout(()=>{
-      const det=document.querySelector('.cal-detail')||document.querySelector('.ov-banner');
-      if(det)det.scrollIntoView({behavior:'smooth',block:'nearest'});
+      // 공지/투표 있으면 달력 상단으로 스크롤
+      const calWrap=document.querySelector('#panel-cal .cal-wrap');
+      if(calWrap) calWrap.scrollIntoView({behavior:'smooth',block:'start'});
     },80);
   }
 }
@@ -1426,7 +1425,20 @@ function markAllRead(){
   renderNoticeBanner();
 }
 
-function renderNoticeBanner(){
+function goToBoard(id){
+  switchTab('board');
+  // 렌더링 후 해당 항목으로 스크롤
+  setTimeout(()=>{
+    const el=document.getElementById(`bitem-${id}`);
+    if(el){
+      el.scrollIntoView({behavior:'smooth',block:'start'});
+      // 하이라이트 효과
+      el.style.outline='2.5px solid var(--accent)';
+      el.style.outlineOffset='2px';
+      setTimeout(()=>{el.style.outline='';el.style.outlineOffset='';},2000);
+    }
+  },150);
+}
   const today=new Date().setHours(0,0,0,0);
   const active=[
     ...boardData.notices.filter(n=>!n.deadline||new Date(n.deadline)>=today).map(n=>({...n,_type:'notice'})),
@@ -1599,7 +1611,7 @@ function getNoticeDeadlinesForMonth(){
       if(d.getFullYear()===CUR_YEAR&&d.getMonth()+1===CUR_MONTH){
         const day=d.getDate();
         if(!result[day]) result[day]=[];
-        result[day].push({title:n.title,content:n.content,type:'notice',isStart:d.getTime()===start?.getTime(),isEnd:d.getTime()===end?.getTime()});
+        result[day].push({id:n.id,title:n.title,content:n.content,type:'notice',isStart:d.getTime()===start?.getTime(),isEnd:d.getTime()===end?.getTime()});
       }
     };
     if(start&&end){
@@ -1619,7 +1631,7 @@ function getNoticeDeadlinesForMonth(){
         const cnt=Object.values(v.votes||{}).filter(x=>x===opt).length;
         return `${opt} ${cnt}명`;
       }).join(' / ');
-      result[day].push({title:v.title,content:`${summary} (총 ${total}명)`,type:'vote'});
+      result[day].push({id:v.id,title:v.title,content:`${summary} (총 ${total}명)`,type:'vote'});
     }
   });
   return result;
@@ -1649,7 +1661,7 @@ function renderBoard(){
         if(item.deadline) return `<div class="board-deadline">${isExpired?'⚠️ 마감됨':'📅'} ${item.deadline} 까지</div>`;
         return '';
       })();
-      html+=`<div class="board-card${isExpired?' board-expired':''}">
+      html+=`<div class="board-card${isExpired?' board-expired':''}" id="bitem-${item.id}">
         <div class="board-head">
           <div><div class="board-title">${item.title}</div><div class="board-meta">${new Date(item.ts).toLocaleDateString('ko-KR')}</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
@@ -1688,7 +1700,7 @@ function renderBoard(){
       optsHtml+=`</div>
         ${deadlineHtml}
         <div style="font-size:12px;color:var(--text3);margin-top:8px;">총 ${total}명 참여 · ${item.anon?'익명 투표':'이름 공개 투표'}${!isExpired?' · 항목을 눌러 투표':''}</div>`;
-      html+=`<div class="board-card">
+      html+=`<div class="board-card" id="bitem-${item.id}">
         <div class="board-head">
           <div><div class="board-title">${item.title}</div><div class="board-meta">${new Date(item.ts).toLocaleDateString('ko-KR')}</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
