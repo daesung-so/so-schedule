@@ -148,6 +148,8 @@ header{background:var(--white);border-bottom:1px solid var(--border);padding:12p
 .board-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;flex-shrink:0;}
 .bb-notice{background:var(--al);color:var(--accent);}
 .bb-vote{background:#f0fdf4;color:var(--green);}
+.bb-done{background:var(--sl);color:var(--slate);}
+.board-expired{opacity:.7;}
 .board-body{padding:14px;}
 .board-content{font-size:14px;color:var(--text2);line-height:1.6;}
 .board-deadline{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--red);background:var(--rl);padding:4px 10px;border-radius:8px;margin-top:10px;}
@@ -425,7 +427,7 @@ th,td{white-space:nowrap;padding:0;}
 <div class="bmodal-overlay" id="bmodal-overlay" onclick="closeBModal(event)">
   <div class="bmodal" onclick="event.stopPropagation()">
     <div class="bmodal-handle"></div>
-    <div class="bmodal-title" id="bmodal-title">새 글 작성</div>
+    <div class="bmodal-title">새 글 작성</div>
     <div class="btype-row">
       <button class="btype-btn on" id="btype-notice" onclick="setBType('notice')">📌 공지</button>
       <button class="btype-btn" id="btype-vote" onclick="setBType('vote')">🗳 투표</button>
@@ -434,6 +436,14 @@ th,td{white-space:nowrap;padding:0;}
     <div class="modal-row" id="b-content-row"><div class="modal-label">내용</div><textarea class="modal-inp" id="b-content" rows="3" placeholder="내용을 입력하세요" style="resize:none;"></textarea></div>
     <div class="modal-row" id="b-deadline-row"><div class="modal-label">마감일 (선택)</div><input class="modal-inp" id="b-deadline" type="date"></div>
     <div id="b-vote-opts" style="display:none;">
+      <div class="modal-row"><div class="modal-label">투표 마감일 (선택)</div><input class="modal-inp" id="b-vote-deadline" type="date"></div>
+      <div class="modal-row">
+        <div class="modal-label">공개 방식</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btype-btn on" id="b-anon-no" onclick="setAnon(false)" style="flex:1;padding:8px;">이름 공개</button>
+          <button class="btype-btn" id="b-anon-yes" onclick="setAnon(true)" style="flex:1;padding:8px;">익명</button>
+        </div>
+      </div>
       <div class="modal-label" style="margin-bottom:8px;">투표 항목</div>
       <div id="b-opts-list"></div>
       <button class="board-add-opt" onclick="addVoteOpt()">+ 항목 추가</button>
@@ -1097,11 +1107,14 @@ function renderCalendar(){
     if(d===selCalDay)cl+=' sel';
     const hday=isHoliday(d);
     if(hday)cl+=' isholiday';
+    // 공지 마감일 체크
+    const deadlines=getNoticeDeadlinesForMonth();
+    const hasDeadline=deadlines[d]&&deadlines[d].length>0;
     // dots
     const dots=new Set();
     EMP.forEach(e=>{const t=tp(getVal(e.name,d),e.part);if(DCOL[t])dots.add(DCOL[t]);});
     const dotsH=[...dots].slice(0,5).map(c=>`<div class="cal-dot" style="background:${c}"></div>`).join('');
-    h+=`<div class="${cl}" onclick="calClick(${d})"><div class="cal-n">${d}</div>${hday?'<div class="holiday-label">공휴</div>':''}<div class="cal-dots">${dotsH}</div></div>`;
+    h+=`<div class="${cl}" onclick="calClick(${d})"><div class="cal-n">${d}</div>${hday?'<div class="holiday-label">공휴</div>':''}${hasDeadline?'<div class="holiday-label" style="color:var(--accent);">📌</div>':''}<div class="cal-dots">${dotsH}</div></div>`;
   }
 
   // inline detail
@@ -1325,7 +1338,10 @@ function switchTab(tab){
   if(tab==='daily')renderDaily(curDay);
   if(tab==='grid')renderGrid();
   if(tab==='cal')renderCalendar();
-  if(tab==='board')renderBoard();
+  if(tab==='board'){
+    renderBoard();
+    loadBoardFromCloud().then(()=>renderBoard());
+  }
 }
 function goToday(){
   const now=new Date();
@@ -1345,13 +1361,11 @@ function goToday(){
 // ── BOARD (공지/투표) ──
 const BOARD_BIN_KEY='board_bin_id';
 let boardData={notices:[],votes:[]};
-let bType='notice';
+let bType='notice', bAnon=false;
 
-// JSONBin board 전용 bin
 async function getBoardBinId(){
   let id=localStorage.getItem(BOARD_BIN_KEY);
   if(id) return id;
-  // 새 bin 생성
   try{
     const res=await fetch('https://api.jsonbin.io/v3/b',{
       method:'POST',
@@ -1360,7 +1374,7 @@ async function getBoardBinId(){
     });
     const json=await res.json();
     id=json?.metadata?.id;
-    if(id){localStorage.setItem(BOARD_BIN_KEY,id);}
+    if(id) localStorage.setItem(BOARD_BIN_KEY,id);
   }catch(e){}
   return id;
 }
@@ -1379,13 +1393,17 @@ async function saveBoardToCloud(){
   if(!id) return;
   try{
     await fetch(`https://api.jsonbin.io/v3/b/${id}`,{
-      method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':JKEY},
+      method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JKEY},
       body:JSON.stringify(boardData)
     });
   }catch(e){}
 }
 
+function setAnon(val){
+  bAnon=val;
+  document.getElementById('b-anon-yes').classList.toggle('on',val);
+  document.getElementById('b-anon-no').classList.toggle('on',!val);
+}
 function setBType(t){
   bType=t;
   document.getElementById('btype-notice').classList.toggle('on',t==='notice');
@@ -1405,8 +1423,10 @@ function openBModal(){
   document.getElementById('b-title').value='';
   document.getElementById('b-content').value='';
   document.getElementById('b-deadline').value='';
+  document.getElementById('b-vote-deadline').value='';
   document.getElementById('b-opts-list').innerHTML='';
   addVoteOpt('');addVoteOpt('');
+  bAnon=false; setAnon(false);
   setBType('notice');
   document.getElementById('bmodal-overlay').classList.add('open');
 }
@@ -1423,7 +1443,8 @@ async function saveBoard(){
     const opts=[...document.getElementById('b-opts-list').querySelectorAll('input')]
       .map(i=>i.value.trim()).filter(Boolean);
     if(opts.length<2){alert('항목을 2개 이상 입력하세요');return;}
-    boardData.votes.unshift({id:Date.now(),title,options:opts,votes:{},ts:Date.now()});
+    const deadline=document.getElementById('b-vote-deadline').value;
+    boardData.votes.unshift({id:Date.now(),title,options:opts,votes:{},anon:bAnon,deadline,ts:Date.now()});
   }
   document.getElementById('bmodal-overlay').classList.remove('open');
   await saveBoardToCloud();
@@ -1442,19 +1463,49 @@ async function doVote(voteId,option){
   const myName=getMyName();
   if(!myName){alert('먼저 내 이름을 선택해주세요');openSetup();return;}
   const vote=boardData.votes.find(v=>v.id===voteId);
-  if(!vote)return;
-  // 이미 같은 항목 선택했으면 취소
+  if(!vote) return;
+  // 마감일 체크
+  if(vote.deadline&&new Date(vote.deadline)<new Date().setHours(0,0,0,0)){
+    alert('투표가 마감됐습니다');return;
+  }
   if(vote.votes[myName]===option) delete vote.votes[myName];
   else vote.votes[myName]=option;
-  await saveBoardToCloud();
+  // 즉시 렌더링 후 저장
   renderBoard();
+  await saveBoardToCloud();
+  // 저장 후 최신 데이터 다시 로드
+  await loadBoardFromCloud();
+  renderBoard();
+}
+
+// 달력에서 공지 마감일 표시용
+function getNoticeDeadlinesForMonth(){
+  const result={};
+  boardData.notices.forEach(n=>{
+    if(!n.deadline) return;
+    const d=new Date(n.deadline);
+    if(d.getFullYear()===CUR_YEAR&&d.getMonth()+1===CUR_MONTH){
+      const day=d.getDate();
+      if(!result[day]) result[day]=[];
+      result[day].push(n.title);
+    }
+  });
+  boardData.votes.forEach(v=>{
+    if(!v.deadline) return;
+    const d=new Date(v.deadline);
+    if(d.getFullYear()===CUR_YEAR&&d.getMonth()+1===CUR_MONTH){
+      const day=d.getDate();
+      if(!result[day]) result[day]=[];
+      result[day].push('🗳 '+v.title);
+    }
+  });
+  return result;
 }
 
 function renderBoard(){
   const myName=getMyName();
+  const today=new Date().setHours(0,0,0,0);
   let html='<div class="board-wrap">';
-
-  // 관리자 작성 버튼
   html+=`<button class="board-add-btn" onclick="requirePin('board')">✏️ 공지 / 투표 작성하기</button>`;
 
   const allItems=[
@@ -1467,14 +1518,14 @@ function renderBoard(){
   }
 
   allItems.forEach(item=>{
-    const isAdmin=()=>true; // 관리자 삭제는 PIN으로
     if(item._type==='notice'){
-      const deadlineHtml=item.deadline?`<div class="board-deadline">📅 ${item.deadline} 까지</div>`:'';
-      html+=`<div class="board-card">
+      const isExpired=item.deadline&&new Date(item.deadline)<today;
+      const deadlineHtml=item.deadline?`<div class="board-deadline">${isExpired?'⚠️ 마감됨':'📅'} ${item.deadline} 까지</div>`:'';
+      html+=`<div class="board-card${isExpired?' board-expired':''}">
         <div class="board-head">
           <div><div class="board-title">${item.title}</div><div class="board-meta">${new Date(item.ts).toLocaleDateString('ko-KR')}</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <span class="board-badge bb-notice">공지</span>
+            <span class="board-badge ${isExpired?'bb-done':'bb-notice'}">${isExpired?'만료':'공지'}</span>
             <button class="board-del" onclick="requirePin('delboard_notice_${item.id}')">🗑</button>
           </div>
         </div>
@@ -1484,7 +1535,7 @@ function renderBoard(){
         </div>
       </div>`;
     } else {
-      // 투표
+      const isExpired=item.deadline&&new Date(item.deadline)<today;
       const total=Object.keys(item.votes||{}).length;
       let optsHtml='<div class="vote-options">';
       item.options.forEach(opt=>{
@@ -1492,21 +1543,27 @@ function renderBoard(){
         const cnt=voters.length;
         const pct=total>0?Math.round(cnt/total*100):0;
         const isMyVote=myName&&item.votes[myName]===opt;
-        optsHtml+=`<div class="vote-option${isMyVote?' voted':''}" onclick="doVote(${item.id},'${opt}')">
+        const clickable=!isExpired?`onclick="doVote(${item.id},'${opt.replace(/'/g,"\\'")}')"`:'' ;
+        // 익명이면 이름 숨김
+        const namesHtml=(!item.anon&&voters.length)?`<div class="vote-names">${voters.join(', ')}</div>`:'';
+        optsHtml+=`<div class="vote-option${isMyVote?' voted':''}" ${clickable} style="${isExpired?'cursor:default;':''}">
           <div class="vote-option-inner">
-            <span class="vote-option-label">${opt}${isMyVote?' <span class="vote-my-label">✓ 내 선택</span>':''}</span>
+            <span class="vote-option-label">${opt}${isMyVote?' <span class="vote-my-label">✓</span>':''}</span>
             <span class="vote-count">${cnt}명 (${pct}%)</span>
           </div>
           <div class="vote-bar-wrap"><div class="vote-bar" style="width:${pct}%"></div></div>
-          ${voters.length?`<div class="vote-names">${voters.join(', ')}</div>`:''}
+          ${namesHtml}
         </div>`;
       });
-      optsHtml+=`</div><div style="font-size:12px;color:var(--text3);margin-top:10px;">총 ${total}명 참여 · 항목을 눌러 투표하세요</div>`;
+      const deadlineHtml=item.deadline?`<div class="board-deadline">${isExpired?'⚠️ 투표 마감됨':'📅'} ${item.deadline} 까지</div>`:'';
+      optsHtml+=`</div>
+        ${deadlineHtml}
+        <div style="font-size:12px;color:var(--text3);margin-top:8px;">총 ${total}명 참여 · ${item.anon?'익명 투표':'이름 공개 투표'}${!isExpired?' · 항목을 눌러 투표':''}</div>`;
       html+=`<div class="board-card">
         <div class="board-head">
           <div><div class="board-title">${item.title}</div><div class="board-meta">${new Date(item.ts).toLocaleDateString('ko-KR')}</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <span class="board-badge bb-vote">투표</span>
+            <span class="board-badge ${isExpired?'bb-done':'bb-vote'}">${isExpired?'마감':'투표'}</span>
             <button class="board-del" onclick="requirePin('delboard_vote_${item.id}')">🗑</button>
           </div>
         </div>
@@ -1534,6 +1591,18 @@ initCloud().then(()=>{
 loadBoardFromCloud().then(()=>{
   if(activeTab==='board') renderBoard();
 });
+// 30초마다 공지/투표 자동 업데이트
+setInterval(async()=>{
+  await loadBoardFromCloud();
+  if(activeTab==='board') renderBoard();
+}, 30000);
+// 30초마다 긴급수정도 자동 업데이트
+setInterval(async()=>{
+  await fetchFromCloud();
+  if(activeTab==='daily') renderDaily(curDay);
+  else if(activeTab==='cal') renderCalendar();
+  else if(activeTab==='grid') renderGrid();
+}, 30000);
 </script>
 </body>
 </html>
