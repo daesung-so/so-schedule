@@ -138,6 +138,44 @@ header{background:var(--white);border-bottom:1px solid var(--border);padding:12p
 .month-nav-label{font-size:16px;font-weight:900;color:var(--text);letter-spacing:-.5px;}
 .month-nav-sub{font-size:11px;color:var(--text3);font-weight:500;}
 /* ── ADMIN MENU ── */
+/* ── BOARD TAB ── */
+.board-wrap{padding:14px;}
+.board-add-btn{width:100%;padding:13px;border-radius:12px;border:1.5px dashed var(--border2);background:var(--white);font-size:14px;font-weight:700;color:var(--text3);cursor:pointer;font-family:inherit;margin-bottom:14px;transition:all .15s;}
+.board-card{background:var(--white);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh);overflow:hidden;margin-bottom:12px;}
+.board-head{padding:12px 14px;background:#fafbfc;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.board-title{font-size:15px;font-weight:800;color:var(--text);flex:1;}
+.board-meta{font-size:11px;color:var(--text3);margin-top:3px;font-weight:500;}
+.board-badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:10px;flex-shrink:0;}
+.bb-notice{background:var(--al);color:var(--accent);}
+.bb-vote{background:#f0fdf4;color:var(--green);}
+.board-body{padding:14px;}
+.board-content{font-size:14px;color:var(--text2);line-height:1.6;}
+.board-deadline{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--red);background:var(--rl);padding:4px 10px;border-radius:8px;margin-top:10px;}
+.board-del{background:none;border:none;font-size:16px;color:var(--text3);cursor:pointer;padding:0;line-height:1;flex-shrink:0;}
+.vote-options{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.vote-option{border:1.5px solid var(--border2);border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .15s;}
+.vote-option.voted{border-color:var(--accent);}
+.vote-option-inner{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;}
+.vote-option-label{font-size:14px;font-weight:600;color:var(--text);}
+.vote-count{font-size:13px;font-weight:700;color:var(--accent);}
+.vote-bar-wrap{background:var(--bg);height:4px;}
+.vote-bar{height:4px;background:var(--accent);transition:width .3s ease;}
+.vote-names{font-size:11px;color:var(--text3);padding:0 14px 10px;line-height:1.6;}
+.vote-my-label{font-size:11px;font-weight:700;color:var(--accent);}
+.bmodal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;align-items:flex-end;justify-content:center;}
+.bmodal-overlay.open{display:flex;}
+.bmodal{background:var(--white);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:20px 20px 36px;animation:slideUp .2s ease;max-height:85vh;overflow-y:auto;}
+.bmodal-handle{width:40px;height:4px;background:var(--border2);border-radius:4px;margin:0 auto 18px;}
+.bmodal-title{font-size:16px;font-weight:800;margin-bottom:16px;}
+.btype-row{display:flex;gap:8px;margin-bottom:16px;}
+.btype-btn{flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--white);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2);}
+.btype-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.vote-opt-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.vote-opt-row input{flex:1;}
+.vote-opt-del{background:none;border:1.5px solid var(--border2);border-radius:8px;padding:6px 10px;font-size:13px;cursor:pointer;color:var(--red);}
+.board-add-opt{background:none;border:1.5px dashed var(--border2);border-radius:8px;padding:8px;width:100%;font-size:13px;color:var(--text3);cursor:pointer;font-family:inherit;margin-bottom:16px;}
+.board-empty{text-align:center;padding:48px 20px;color:var(--text3);font-size:14px;}
+
 .admin-menu-btn{width:36px;height:36px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);flex-shrink:0;}
 .admin-menu-btn:active{background:var(--border);}
 .admin-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:998;align-items:center;justify-content:center;}
@@ -353,11 +391,13 @@ th,td{white-space:nowrap;padding:0;}
   <div class="tab active" id="tab-daily" onclick="switchTab('daily')">📋 일별</div>
   <div class="tab" id="tab-cal" onclick="switchTab('cal')">📅 달력</div>
   <div class="tab" id="tab-grid" onclick="switchTab('grid')">📊 전체표</div>
+  <div class="tab" id="tab-board" onclick="switchTab('board')">📢 공지</div>
 </div>
 
 <div id="panel-daily" class="panel active"></div>
 <div id="panel-cal" class="panel"></div>
 <div id="panel-grid" class="panel"></div>
+<div id="panel-board" class="panel"></div>
 
 <!-- day popup from grid -->
 <div id="day-popup" style="display:none;" class="day-popup">
@@ -378,6 +418,30 @@ th,td{white-space:nowrap;padding:0;}
     <div class="setup-sub">선택하면 내 근무가 항상 강조 표시됩니다</div>
     <div class="setup-grid" id="setup-grid"></div>
     <button class="setup-confirm" id="setup-confirm" onclick="confirmSetup()" disabled>확인</button>
+  </div>
+</div>
+
+<!-- Board modal -->
+<div class="bmodal-overlay" id="bmodal-overlay" onclick="closeBModal(event)">
+  <div class="bmodal" onclick="event.stopPropagation()">
+    <div class="bmodal-handle"></div>
+    <div class="bmodal-title" id="bmodal-title">새 글 작성</div>
+    <div class="btype-row">
+      <button class="btype-btn on" id="btype-notice" onclick="setBType('notice')">📌 공지</button>
+      <button class="btype-btn" id="btype-vote" onclick="setBType('vote')">🗳 투표</button>
+    </div>
+    <div class="modal-row"><div class="modal-label">제목</div><input class="modal-inp" id="b-title" placeholder="제목을 입력하세요"></div>
+    <div class="modal-row" id="b-content-row"><div class="modal-label">내용</div><textarea class="modal-inp" id="b-content" rows="3" placeholder="내용을 입력하세요" style="resize:none;"></textarea></div>
+    <div class="modal-row" id="b-deadline-row"><div class="modal-label">마감일 (선택)</div><input class="modal-inp" id="b-deadline" type="date"></div>
+    <div id="b-vote-opts" style="display:none;">
+      <div class="modal-label" style="margin-bottom:8px;">투표 항목</div>
+      <div id="b-opts-list"></div>
+      <button class="board-add-opt" onclick="addVoteOpt()">+ 항목 추가</button>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="document.getElementById('bmodal-overlay').classList.remove('open')">취소</button>
+      <button class="modal-save" onclick="saveBoard()">등록</button>
+    </div>
   </div>
 </div>
 
@@ -555,6 +619,11 @@ function requirePin(action){
     if(action==='upload') document.getElementById('xlsx-input').click();
     else if(action==='delete') deleteMonth();
     else if(action==='edit') openEdit();
+    else if(action==='board') openBModal();
+    else if(action.startsWith('delboard_')){
+      const parts=action.split('_');
+      deleteBoard(parts[1],parseInt(parts[2]));
+    }
   } else {
     alert('PIN이 틀렸습니다');
   }
@@ -1256,6 +1325,7 @@ function switchTab(tab){
   if(tab==='daily')renderDaily(curDay);
   if(tab==='grid')renderGrid();
   if(tab==='cal')renderCalendar();
+  if(tab==='board')renderBoard();
 }
 function goToday(){
   const now=new Date();
@@ -1272,17 +1342,197 @@ function goToday(){
   else{gridDayClick(realDay);}
 }
 
+// ── BOARD (공지/투표) ──
+const BOARD_BIN_KEY='board_bin_id';
+let boardData={notices:[],votes:[]};
+let bType='notice';
+
+// JSONBin board 전용 bin
+async function getBoardBinId(){
+  let id=localStorage.getItem(BOARD_BIN_KEY);
+  if(id) return id;
+  // 새 bin 생성
+  try{
+    const res=await fetch('https://api.jsonbin.io/v3/b',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Master-Key':JKEY,'X-Bin-Name':'gumupyo-board','X-Bin-Private':'false'},
+      body:JSON.stringify({notices:[],votes:[]})
+    });
+    const json=await res.json();
+    id=json?.metadata?.id;
+    if(id){localStorage.setItem(BOARD_BIN_KEY,id);}
+  }catch(e){}
+  return id;
+}
+async function loadBoardFromCloud(){
+  const id=await getBoardBinId();
+  if(!id) return;
+  try{
+    const res=await fetch(`https://api.jsonbin.io/v3/b/${id}/latest`,{headers:{'X-Master-Key':JKEY,'X-Bin-Meta':'false'}});
+    const json=await res.json();
+    const r=json?.record||json;
+    if(r&&r.notices) boardData=r;
+  }catch(e){}
+}
+async function saveBoardToCloud(){
+  const id=await getBoardBinId();
+  if(!id) return;
+  try{
+    await fetch(`https://api.jsonbin.io/v3/b/${id}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':JKEY},
+      body:JSON.stringify(boardData)
+    });
+  }catch(e){}
+}
+
+function setBType(t){
+  bType=t;
+  document.getElementById('btype-notice').classList.toggle('on',t==='notice');
+  document.getElementById('btype-vote').classList.toggle('on',t==='vote');
+  document.getElementById('b-content-row').style.display=t==='notice'?'flex':'none';
+  document.getElementById('b-deadline-row').style.display=t==='notice'?'flex':'none';
+  document.getElementById('b-vote-opts').style.display=t==='vote'?'block':'none';
+}
+function addVoteOpt(val=''){
+  const list=document.getElementById('b-opts-list');
+  const idx=list.children.length;
+  const div=document.createElement('div');div.className='vote-opt-row';
+  div.innerHTML=`<input class="modal-inp" placeholder="항목 ${idx+1}" value="${val}"><button class="vote-opt-del" onclick="this.parentElement.remove()">✕</button>`;
+  list.appendChild(div);
+}
+function openBModal(){
+  document.getElementById('b-title').value='';
+  document.getElementById('b-content').value='';
+  document.getElementById('b-deadline').value='';
+  document.getElementById('b-opts-list').innerHTML='';
+  addVoteOpt('');addVoteOpt('');
+  setBType('notice');
+  document.getElementById('bmodal-overlay').classList.add('open');
+}
+function closeBModal(e){if(e.target===document.getElementById('bmodal-overlay'))document.getElementById('bmodal-overlay').classList.remove('open');}
+
+async function saveBoard(){
+  const title=document.getElementById('b-title').value.trim();
+  if(!title){alert('제목을 입력하세요');return;}
+  if(bType==='notice'){
+    const content=document.getElementById('b-content').value.trim();
+    const deadline=document.getElementById('b-deadline').value;
+    boardData.notices.unshift({id:Date.now(),title,content,deadline,ts:Date.now()});
+  } else {
+    const opts=[...document.getElementById('b-opts-list').querySelectorAll('input')]
+      .map(i=>i.value.trim()).filter(Boolean);
+    if(opts.length<2){alert('항목을 2개 이상 입력하세요');return;}
+    boardData.votes.unshift({id:Date.now(),title,options:opts,votes:{},ts:Date.now()});
+  }
+  document.getElementById('bmodal-overlay').classList.remove('open');
+  await saveBoardToCloud();
+  renderBoard();
+}
+
+async function deleteBoard(type,id){
+  if(!confirm('삭제할까요?'))return;
+  if(type==='notice') boardData.notices=boardData.notices.filter(n=>n.id!==id);
+  else boardData.votes=boardData.votes.filter(v=>v.id!==id);
+  await saveBoardToCloud();
+  renderBoard();
+}
+
+async function doVote(voteId,option){
+  const myName=getMyName();
+  if(!myName){alert('먼저 내 이름을 선택해주세요');openSetup();return;}
+  const vote=boardData.votes.find(v=>v.id===voteId);
+  if(!vote)return;
+  // 이미 같은 항목 선택했으면 취소
+  if(vote.votes[myName]===option) delete vote.votes[myName];
+  else vote.votes[myName]=option;
+  await saveBoardToCloud();
+  renderBoard();
+}
+
+function renderBoard(){
+  const myName=getMyName();
+  let html='<div class="board-wrap">';
+
+  // 관리자 작성 버튼
+  html+=`<button class="board-add-btn" onclick="requirePin('board')">✏️ 공지 / 투표 작성하기</button>`;
+
+  const allItems=[
+    ...boardData.notices.map(n=>({...n,_type:'notice'})),
+    ...boardData.votes.map(v=>({...v,_type:'vote'}))
+  ].sort((a,b)=>b.ts-a.ts);
+
+  if(allItems.length===0){
+    html+='<div class="board-empty">📋<br>등록된 공지나 투표가 없어요</div>';
+  }
+
+  allItems.forEach(item=>{
+    const isAdmin=()=>true; // 관리자 삭제는 PIN으로
+    if(item._type==='notice'){
+      const deadlineHtml=item.deadline?`<div class="board-deadline">📅 ${item.deadline} 까지</div>`:'';
+      html+=`<div class="board-card">
+        <div class="board-head">
+          <div><div class="board-title">${item.title}</div><div class="board-meta">${new Date(item.ts).toLocaleDateString('ko-KR')}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="board-badge bb-notice">공지</span>
+            <button class="board-del" onclick="requirePin('delboard_notice_${item.id}')">🗑</button>
+          </div>
+        </div>
+        <div class="board-body">
+          <div class="board-content">${(item.content||'').replace(/\n/g,'<br>')}</div>
+          ${deadlineHtml}
+        </div>
+      </div>`;
+    } else {
+      // 투표
+      const total=Object.keys(item.votes||{}).length;
+      let optsHtml='<div class="vote-options">';
+      item.options.forEach(opt=>{
+        const voters=Object.entries(item.votes||{}).filter(([,v])=>v===opt).map(([n])=>n);
+        const cnt=voters.length;
+        const pct=total>0?Math.round(cnt/total*100):0;
+        const isMyVote=myName&&item.votes[myName]===opt;
+        optsHtml+=`<div class="vote-option${isMyVote?' voted':''}" onclick="doVote(${item.id},'${opt}')">
+          <div class="vote-option-inner">
+            <span class="vote-option-label">${opt}${isMyVote?' <span class="vote-my-label">✓ 내 선택</span>':''}</span>
+            <span class="vote-count">${cnt}명 (${pct}%)</span>
+          </div>
+          <div class="vote-bar-wrap"><div class="vote-bar" style="width:${pct}%"></div></div>
+          ${voters.length?`<div class="vote-names">${voters.join(', ')}</div>`:''}
+        </div>`;
+      });
+      optsHtml+=`</div><div style="font-size:12px;color:var(--text3);margin-top:10px;">총 ${total}명 참여 · 항목을 눌러 투표하세요</div>`;
+      html+=`<div class="board-card">
+        <div class="board-head">
+          <div><div class="board-title">${item.title}</div><div class="board-meta">${new Date(item.ts).toLocaleDateString('ko-KR')}</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="board-badge bb-vote">투표</span>
+            <button class="board-del" onclick="requirePin('delboard_vote_${item.id}')">🗑</button>
+          </div>
+        </div>
+        <div class="board-body">${optsHtml}</div>
+      </div>`;
+    }
+  });
+
+  html+='</div>';
+  document.getElementById('panel-board').innerHTML=html;
+}
+
 // ── INIT ──
 renderMonthNav();
 updateHeaderStatus();
 renderDaily(TODAY);
 renderCalendar();
 if(!getMyName()) setTimeout(()=>openSetup(),400);
-// 클라우드에서 긴급수정 데이터 가져오기
+// 클라우드에서 긴급수정 + 공지/투표 데이터 가져오기
 initCloud().then(()=>{
   renderDaily(curDay);
   renderCalendar();
   if(activeTab==='grid') renderGrid();
+});
+loadBoardFromCloud().then(()=>{
+  if(activeTab==='board') renderBoard();
 });
 </script>
 </body>
