@@ -555,7 +555,6 @@ function saveOv(o){
   localStorage.setItem(monthKey(CUR_YEAR,CUR_MONTH),JSON.stringify(o));
   syncToCloud();
 }
-function getVal(name,day){const ov=loadOv();const k=`${name}_${day}`;if(ov[k])return ov[k].val;return EMP.find(e=>e.name===name)?.s[String(day)]||'';}
 function isMod(name,day){return !!loadOv()[`${name}_${day}`];}
 function getMyName(){return localStorage.getItem(MK)||'';}
 function setMyName(n){localStorage.setItem(MK,n);}
@@ -865,6 +864,21 @@ function saveAsFile(){
 // 추가 팀원 (근무표 외 인원)
 const EXTRA_MEMBERS=['김병구','김세훈','오아라','윤대명','이재욱','이승형','한중진'];
 
+function getVal(name,day){
+  const ov=loadOv();const k=`${name}_${day}`;
+  if(ov[k]) return ov[k].val;
+  const empVal=EMP.find(e=>e.name===name)?.s[String(day)];
+  if(empVal!==undefined) return empVal;
+  // 기술팀: 평일=주, 주말/공휴=비
+  if(EXTRA_MEMBERS.includes(name)){
+    const dow=(START+day-1)%7;
+    const isWeekend=dow===0||dow===6;
+    const isHday=EMP.length>0&&EMP.some(e=>e.s[String(day)]==='공휴');
+    return (isWeekend||isHday)?'비':'주';
+  }
+  return '';
+}
+
 let setupSelected='';
 function openSetup(isChange=false){
   setupSelected=getMyName();
@@ -953,11 +967,18 @@ const DCOL={core:'#2563eb',svc:'#16a34a',night:'#7c3aed',rest:'#94a3b8',vacation
 
 function groups(day){
   const g={core:[],svc:[],gobul:[],rest:[],night:[],vacation:[],work:[],jakgum:[],trip:[],half:[],halfam:[]};
+  // 일반 직원
   EMP.forEach(e=>{
     const v=getVal(e.name,day);const t=tp(v,e.part);
     const num=getNum(v);const mod=isMod(e.name,day);
     if(v==='작검'||v==='집작') g.jakgum.push({name:e.name,v,num,mod});
     else if(g[t]) g[t].push({name:e.name,v,num,mod});
+  });
+  // 기술팀
+  EXTRA_MEMBERS.forEach(name=>{
+    const v=getVal(name,day);const t=tp(v,'CORE');
+    const num=getNum(v);const mod=isMod(name,day);
+    if(g[t]) g[t].push({name,v,num,mod});
   });
   Object.keys(g).forEach(k=>{g[k].sort((a,b)=>(a.num?+a.num:99)-(b.num?+b.num:99));});
   return g;
@@ -1134,7 +1155,7 @@ function renderCalendar(){
     const dots=new Set();
     EMP.forEach(e=>{const t=tp(getVal(e.name,d),e.part);if(DCOL[t])dots.add(DCOL[t]);});
     const dotsH=[...dots].slice(0,5).map(c=>`<div class="cal-dot" style="background:${c}"></div>`).join('');
-    h+=`<div class="${cl}" onclick="calClick(${d})"><div class="cal-n">${d}</div>${hday?'<div class="holiday-label">공휴</div>':''}${hasNotice?'<div class="holiday-label" style="color:var(--accent);font-size:7px;background:var(--al);border-radius:3px;padding:1px 3px;">공지</div>':''}${hasVote?'<div class="holiday-label" style="color:var(--green);font-size:7px;background:#f0fdf4;border-radius:3px;padding:1px 3px;">투표</div>':''}<div class="cal-dots">${dotsH}</div></div>`;
+    h+=`<div class="${cl}" onclick="calClick(${d})"><div class="cal-n">${d}</div>${hday?'<div class="holiday-label">공휴</div>':''}<div class="cal-dots">${dotsH}${hasNotice?'<div class="cal-dot" style="background:var(--accent);width:5px;height:5px;"></div>':''}${hasVote?'<div class="cal-dot" style="background:var(--green);width:5px;height:5px;"></div>':''}</div></div>`;
   }
 
   // inline detail
@@ -1149,14 +1170,16 @@ function renderCalendar(){
     // 공지/투표 마감일 배너
     const deadlines=getNoticeDeadlinesForMonth();
     const dayDeadlines=deadlines[selCalDay]||[];
-    const deadlineBanner=dayDeadlines.length?`<div style="margin:0 0 8px;background:var(--al);border:1.5px solid #bfdbfe;border-radius:var(--r);padding:10px 14px;">
-      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">📌 공지/투표</div>
-      ${dayDeadlines.map(i=>`<div style="margin-bottom:6px;">
-        <div style="font-size:13px;font-weight:700;color:var(--text);">${i.type==='vote'?'🗳 ':'📌 '}${i.title}</div>
-        ${i.content?`<div style="font-size:12px;color:var(--text2);margin-top:2px;line-height:1.5;">${i.content.replace(/\n/g,'<br>')}</div>`:''}
+    const deadlineBanner=dayDeadlines.length?`<div style="margin:0 0 8px;background:var(--white);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;">
+      ${dayDeadlines.map(i=>`<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;">
+        <div style="width:4px;min-height:36px;border-radius:4px;background:${i.type==='vote'?'var(--green)':'var(--accent)'};flex-shrink:0;margin-top:2px;"></div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:3px;">${i.title}</div>
+          ${i.content?`<div style="font-size:12px;color:var(--text3);line-height:1.5;">${i.content.replace(/\n/g,'<br>')}</div>`:''}
+        </div>
       </div>`).join('')}
     </div>`:'';
-    detail=`${banner}${deadlineBanner}<div class="cal-detail">
+    detail=`${banner}${deadlineBanner}${calShowSched?`<div class="cal-detail">
       <div class="cal-detail-head">
         <div class="cal-detail-title">${CUR_MONTH}월 ${selCalDay}일 (${dow}요일)</div>
         <div class="cal-detail-acts">
@@ -1164,8 +1187,8 @@ function renderCalendar(){
           <button class="cal-close" onclick="calClose()">✕</button>
         </div>
       </div>
-      ${calShowSched?shiftRows(g):''}
-    </div>`;
+      ${shiftRows(g)}
+    </div>`:(deadlineBanner?`<div style="text-align:right;"><button class="cal-close" onclick="calClose()" style="font-size:18px;color:var(--text3);background:none;border:none;cursor:pointer;">✕</button></div>`:'')}`;
   }
 
   document.getElementById('panel-cal').innerHTML=`
@@ -1567,7 +1590,12 @@ function getNoticeDeadlinesForMonth(){
     if(d.getFullYear()===CUR_YEAR&&d.getMonth()+1===CUR_MONTH){
       const day=d.getDate();
       if(!result[day]) result[day]=[];
-      result[day].push({title:v.title,content:'',type:'vote'});
+      const total=Object.keys(v.votes||{}).length;
+      const summary=v.options.map(opt=>{
+        const cnt=Object.values(v.votes||{}).filter(x=>x===opt).length;
+        return `${opt} ${cnt}명`;
+      }).join(' / ');
+      result[day].push({title:v.title,content:`${summary} (총 ${total}명)`,type:'vote'});
     }
   });
   return result;
