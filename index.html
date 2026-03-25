@@ -1398,7 +1398,7 @@ function switchTab(tab){
   if(tab==='cal')renderCalendar();
   if(tab==='board'){
     renderBoard();
-    loadBoardFromCloud().then(()=>renderBoard());
+    loadBoardFromCloud().then(()=>{renderBoard();markAllRead();});
   }
 }
 function goToday(){
@@ -1418,25 +1418,34 @@ function goToday(){
 
 // ── 공지 상단 배너 + 탭 뱃지 ──
 let noticeBannerIdx=0;
+// 읽은 공지 ID 관리
+function getReadIds(){try{return JSON.parse(localStorage.getItem('board_read')||'[]');}catch(e){return [];}}
+function markAllRead(){
+  const active=[...boardData.notices,...boardData.votes].map(i=>i.id);
+  localStorage.setItem('board_read',JSON.stringify(active));
+  renderNoticeBanner();
+}
+
 function renderNoticeBanner(){
   const today=new Date().setHours(0,0,0,0);
-  // 진행 중인 공지/투표만 (마감 안 된 것)
   const active=[
     ...boardData.notices.filter(n=>!n.deadline||new Date(n.deadline)>=today).map(n=>({...n,_type:'notice'})),
     ...boardData.votes.filter(v=>!v.deadline||new Date(v.deadline)>=today).map(v=>({...v,_type:'vote'}))
   ];
   const area=document.getElementById('notice-banner-area');
   if(!area) return;
-  // 탭 뱃지 업데이트
+  // 읽지 않은 것만 뱃지에 표시
+  const readIds=getReadIds();
+  const unread=active.filter(i=>!readIds.includes(i.id));
   const tabBoard=document.getElementById('tab-board');
   if(tabBoard){
-    const cnt=active.length;
-    tabBoard.innerHTML=`📢 공지${cnt>0?`<span class="tab-badge">${cnt}</span>`:''}`;
+    tabBoard.innerHTML=`📢 공지${unread.length>0?`<span class="tab-badge">${unread.length}</span>`:''}`;
   }
   if(active.length===0){area.innerHTML='';return;}
-  // 배너 순환 (여러 개면 돌아가며)
-  noticeBannerIdx=noticeBannerIdx%active.length;
-  const item=active[noticeBannerIdx];
+  // 배너는 읽지 않은 것 우선, 없으면 전체 순환
+  const bannerList=unread.length>0?unread:active;
+  noticeBannerIdx=noticeBannerIdx%bannerList.length;
+  const item=bannerList[noticeBannerIdx];
   const isVote=item._type==='vote';
   const sub=isVote
     ?`🗳 투표 · ${item.deadline?item.deadline+' 마감':'마감일 없음'}`
@@ -1448,8 +1457,7 @@ function renderNoticeBanner(){
     </div>
     <div class="notice-top-banner-arrow">보기 ›</div>
   </div>`;
-  // 여러 개면 5초마다 다음 공지로
-  if(active.length>1){
+  if(bannerList.length>1){
     clearTimeout(renderNoticeBanner._timer);
     renderNoticeBanner._timer=setTimeout(()=>{noticeBannerIdx++;renderNoticeBanner();},5000);
   }
