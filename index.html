@@ -534,8 +534,14 @@ const BUILTIN_MONTHS={"2026_01": [{"name": "박형근", "part": "CORE", "cat": "
 const DOW=['일','월','화','수','목','금','토'];
 
 // ── ACTIVE MONTH STATE (동적) ──
-let EMP=BUILTIN_MONTHS['2026_03'];
-let CUR_YEAR=2026, CUR_MONTH=3;
+// 현재 날짜 기준으로 자동 감지
+const _now=new Date();
+const _initYear=_now.getFullYear(), _initMonth=_now.getMonth()+1;
+const _initKey=`${_initYear}_${String(_initMonth).padStart(2,'0')}`;
+let EMP=BUILTIN_MONTHS[_initKey]||BUILTIN_MONTHS[Object.keys(BUILTIN_MONTHS).sort().pop()]||[];
+let CUR_YEAR=EMP.length?_initYear:parseInt(Object.keys(BUILTIN_MONTHS).sort().pop().split('_')[0]);
+let CUR_MONTH=EMP.length?_initMonth:parseInt(Object.keys(BUILTIN_MONTHS).sort().pop().split('_')[1]);
+if(!EMP.length){EMP=BUILTIN_MONTHS[`${CUR_YEAR}_${String(CUR_MONTH).padStart(2,'0')}`]||[];}
 let START=0, DAYS=31;
 // TODAY: 앱 열 때마다 실시간 계산
 function getToday(){
