@@ -681,7 +681,7 @@ let smsDayOverride=null;
 
 // ── STORAGE ──
 const MK='my_name_2026';
-const JKEY='$2a$10$tMh0JYAlhrIJGLZgz8fc/.9zbm2F.29jUHh6RK0dioxpRLlsYDMVq';
+const BOARD_BIN=''; // KV로 대체됨
 
 function monthKey(y,m){return `sch_ov_${y}_${String(m).padStart(2,'0')}`;}
 function empKey(y,m){return `sch_emp_${y}_${String(m).padStart(2,'0')}`;}
@@ -695,8 +695,11 @@ function getMyName(){return localStorage.getItem(MK)||'';}
 function setMyName(n){localStorage.setItem(MK,n);}
 
 // ── JSONBIN 통합 동기화 (긴급수정 + 공지/투표 하나의 bin으로) ──
-const UNIFIED_BIN='69ba04fcb7ec241ddc7a7689'; // 기존 overrides bin 재사용
-const BOARD_BIN='69d997d336566621a89e3336';
+const UNIFIED_BIN=''; // KV로 대체됨
+const JKEY='';        // KV로 대체됨
+
+
+
 
 function getAllOv(){
   const all={};
@@ -717,9 +720,9 @@ function applyAllOv(all){
 async function syncToCloud(){
   try{
     const data=getAllOv();
-    await fetch(`https://api.jsonbin.io/v3/b/${UNIFIED_BIN}`,{
+    await fetch('/api/overrides',{
       method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':JKEY},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify(data)
     });
   }catch(e){console.log('sync 오류:', e.message);}
@@ -727,12 +730,9 @@ async function syncToCloud(){
 
 async function fetchFromCloud(){
   try{
-    const res=await fetch(`https://api.jsonbin.io/v3/b/${UNIFIED_BIN}/latest`,{
-      headers:{'X-Master-Key':JKEY,'X-Bin-Meta':'false'}
-    });
+    const res=await fetch('/api/overrides');
     if(!res.ok) return;
-    const json=await res.json();
-    const r=json?.record||json;
+    const r=await res.json();
     if(r&&typeof r==='object'){
       applyAllOv(r);
       localStorage.setItem('sch_ov_cache',JSON.stringify(r));
@@ -752,6 +752,8 @@ async function fetchFromCloud(){
 const BOARD_CACHE_KEY='so_board_cache';
 
 let boardData={notices:[],votes:[],vacations:[]};
+let _boardReadyResolve;
+const boardReady=new Promise(res=>{_boardReadyResolve=res;});
 
 // 캐시 먼저 즉시 적용
 (function loadBoardCache(){
@@ -763,31 +765,28 @@ let boardData={notices:[],votes:[],vacations:[]};
 
 async function loadBoardFromCloud(){
   try{
-    const res=await fetch(`https://api.jsonbin.io/v3/b/${BOARD_BIN}/latest`,{
-      headers:{'X-Master-Key':JKEY,'X-Bin-Meta':'false'}
-    });
-    const json=await res.json();
-    const r=json?.record||json;
+    const res=await fetch('/api/board');
+    const r=await res.json();
     if(r&&r.notices){
       boardData=r;
       localStorage.setItem(BOARD_CACHE_KEY,JSON.stringify(r));
     }
   }catch(e){}
+  _boardReadyResolve();
   renderNoticeBanner();
   if(activeTab==='grid'&&gridView==='vac'){const el=document.getElementById('grid-view-vac');if(el)el.innerHTML=buildVacGridHTML();}
 }
 
 async function initCloud(){await fetchFromCloud();}
 
-// board bin
-async function getBoardBinId(){return BOARD_BIN;}
-
 async function saveBoardToCloud(){
+  await boardReady;
   try{
-    await fetch(`https://api.jsonbin.io/v3/b/${BOARD_BIN}`,{
-      method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JKEY},
+    await fetch('/api/board',{
+      method:'PUT',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(boardData)
     });
+    localStorage.setItem(BOARD_CACHE_KEY,JSON.stringify(boardData));
   }catch(e){}
 }
 
@@ -2182,12 +2181,8 @@ async function doVote(voteId,option){
   }
   if(vote.votes[myName]===option) delete vote.votes[myName];
   else vote.votes[myName]=option;
-  // 즉시 렌더링 후 저장
   renderBoard();
   await saveBoardToCloud();
-  // 저장 후 최신 데이터 다시 로드
-  await loadBoardFromCloud();
-  renderBoard();
 }
 
 // 달력에서 공지 마감일 표시용
