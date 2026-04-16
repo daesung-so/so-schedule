@@ -1,0 +1,10 @@
+name = "so-schedule"
+main = "_worker.js"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "./public"
+
+[[kv_namespaces]]
+binding = "SO_KV"
+id = "685da13cf83d4613a59196acda14dea1"
