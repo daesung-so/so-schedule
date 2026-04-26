@@ -197,12 +197,12 @@ header{background:var(--white);border-bottom:1px solid var(--border);padding:12p
 .vacgrid-month-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 .vacgrid-table{width:100%;border-collapse:collapse;font-size:12px;}
 .vacgrid-name{padding:8px 10px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);white-space:nowrap;background:var(--white);position:sticky;left:0;z-index:2;}
-.vacgrid-day{width:28px;min-width:28px;text-align:center;padding:4px 0;border-bottom:1px solid var(--border);border-left:1px solid var(--border);font-size:10px;color:var(--text3);}
+.vacgrid-day{width:32px;min-width:32px;text-align:center;padding:3px 0;border-bottom:1px solid var(--border);border-left:1px solid var(--border);font-size:11px;color:var(--text3);}
 .vacgrid-day.sun{color:var(--red);}
 .vacgrid-day.sat{color:var(--accent);}
 .vacgrid-day.today{background:#dbeafe;}
 .vacgrid-day.holiday{background:#fff5f5;}
-.vac-cell{width:28px;min-width:28px;text-align:center;padding:3px 0;border-bottom:1px solid var(--border);border-left:1px solid var(--border);}
+.vac-cell{width:32px;min-width:32px;text-align:center;padding:0;border-bottom:1px solid var(--border);border-left:1px solid var(--border);height:20px;}
 .vac-cell.weekend-sun{background:#fff8f8;}
 .vac-cell.weekend-sat{background:#f8faff;}
 .vac-cell.vac-on{background:#fef9c3;}
@@ -1977,7 +1977,7 @@ function buildVacGridHTML(){
     const isSun=dow===0; const isSat=dow===6;
     const color=isSun?'#e00':isSat?'#00c':'#333';
     const bg=isToday?'#dbeafe':isSun?'#fff8f8':isSat?'#f8faff':'#f0f0f0';
-    headerCells+=`<th style="min-width:22px;width:22px;text-align:center;background:${bg};color:${color};font-size:10px;font-weight:700;border:1px solid #d0d0d0;padding:2px 0;">${d}<br>${['일','월','화','수','목','금','토'][dow]}</th>`;
+    headerCells+=`<th style="min-width:32px;width:32px;text-align:center;background:${bg};color:${color};font-size:10px;font-weight:700;border:1px solid #d0d0d0;padding:2px 0;">${d}<br>${['일','월','화','수','목','금','토'][dow]}</th>`;
   }
 
   let rows='';
@@ -2023,7 +2023,7 @@ function buildVacGridHTML(){
       if(!bg) bg=isSun?'#fff8f8':isSat?'#f8faff':'#fff';
       if(isToday&&!bg) bg='#dbeafe';
 
-      cells+=`<td style="text-align:center;background:${bg};color:${color};font-weight:${fw};font-size:11px;border:1px solid #d0d0d0;${isToday?'outline:2px solid #3b82f6;':''}">${disp}</td>`;
+      cells+=`<td style="text-align:center;width:32px;min-width:32px;height:20px;background:${bg};color:${color};font-weight:${fw};font-size:13px;border:1px solid #d0d0d0;${isToday?'outline:2px solid #3b82f6;':''}">${disp}</td>`;
     }
     rows+=`<tr>${cells}</tr>`;
   });
