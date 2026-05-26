@@ -4,6 +4,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#ffffff">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>성수SO팀 근무표</title>
 <style>
 :root{
@@ -399,6 +402,11 @@ th,td{white-space:nowrap;padding:0;}
 .modal-btns{display:flex;gap:10px;margin-top:4px;}
 .modal-cancel{flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--white);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--text2);}
 .modal-save{flex:2;padding:12px;border-radius:10px;border:none;background:var(--accent);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;color:#fff;}
+/* 토스트 알림 */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1e293b;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:all .25s;z-index:10000;max-width:90%;text-align:center;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.err{background:#dc2626;}
+.toast.ok{background:#16a34a;}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -772,12 +780,13 @@ function applyAllOv(all){
 async function syncToCloud(){
   try{
     const data=getAllOv();
-    await fetch('/api/overrides',{
+    const res=await fetch('/api/overrides',{
       method:'PUT',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(data)
     });
-  }catch(e){console.log('sync 오류:', e.message);}
+    if(!res.ok) throw new Error('sync failed');
+  }catch(e){toast('동기화 실패','err');}
 }
 
 async function fetchFromCloud(){
@@ -834,12 +843,13 @@ async function initCloud(){await fetchFromCloud();}
 async function saveBoardToCloud(){
   await boardReady;
   try{
-    await fetch('/api/board',{
+    const res=await fetch('/api/board',{
       method:'PUT',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(boardData)
     });
+    if(!res.ok) throw new Error('save failed');
     localStorage.setItem(BOARD_CACHE_KEY,JSON.stringify(boardData));
-  }catch(e){}
+  }catch(e){toast('저장 실패 — 네트워크 확인 후 다시 시도하세요','err');}
 }
 
 // ── PIN ──
@@ -876,6 +886,16 @@ function esc(v){
   }[m]));
 }
 function nl2br(v){return esc(v).replace(/\n/g,'<br>');}
+
+// 토스트 알림
+function toast(msg, type){
+  let el=document.querySelector('.toast');
+  if(!el){el=document.createElement('div');el.className='toast';document.body.appendChild(el);}
+  el.textContent=msg;
+  el.className='toast show'+(type?' '+type:'');
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>{el.className='toast';}, 2500);
+}
 
 // ── MONTH MANAGEMENT ──
 function getStoredMonths(){
@@ -1988,6 +2008,7 @@ function buildVacGridHTML(){
     const bg=isToday?'#dbeafe':isSun?'#fff8f8':isSat?'#f8faff':'#f0f0f0';
     headerCells+=`<th style="min-width:32px;width:32px;text-align:center;background:${bg};color:${color};font-size:10px;font-weight:700;border:1px solid #d0d0d0;padding:2px 0;">${d}<br>${['일','월','화','수','목','금','토'][dow]}</th>`;
   }
+  headerCells+=`<th style="min-width:42px;width:42px;text-align:center;background:#fef9c3;color:#854d0e;font-size:11px;font-weight:800;border:1px solid #d0d0d0;padding:2px 4px;">휴가<br>일수</th>`;
 
   let rows='';
   allNames.forEach(name=>{
@@ -1997,6 +2018,7 @@ function buildVacGridHTML(){
     if(!empData&&!svcData&&!myVacs.length) return;
 
     const isMe=name===myName;
+    let vacCount=0;
     let cells=`<td style="position:sticky;left:0;z-index:1;background:${isMe?'#eff6ff':'#fff'};padding:4px 8px;font-size:12px;font-weight:${isMe?'800':'600'};white-space:nowrap;border:1px solid #d0d0d0;color:${isMe?'var(--accent)':'#333'};">${isMe?'★ ':''}${name}</td>`;
 
     for(let d=1;d<=days;d++){
@@ -2009,6 +2031,7 @@ function buildVacGridHTML(){
       const vacForDay=myVacs.find(v=>v.start<=dateStr&&v.end>=dateStr);
       if(vacForDay){
         const lbl=VAC_LABEL[vacForDay.type]||'기';
+        vacCount++;
         cells+=`<td style="text-align:center;background:${VAC_STYLE.bg};color:${VAC_STYLE.color};font-weight:${VAC_STYLE.fw};font-size:11px;border:1px solid #d0d0d0;${isToday?'outline:2px solid var(--accent);':''}cursor:default;" title="${vacForDay.type}${vacForDay.memo?' - '+vacForDay.memo:''}">${lbl}</td>`;
         continue;
       }
@@ -2023,9 +2046,9 @@ function buildVacGridHTML(){
       if(raw==='야'||raw.startsWith('야(')){disp='야';bg='#ffffff';fw='bold';}
       else if(raw==='숙'){disp='숙';bg='#ffffff';fw='bold';}
       else if(raw==='비'||raw==='공휴'){disp='비';bg='#92D050';fw='normal';color='#375623';}
-      else if(raw.startsWith('휴가')){disp='휴';bg='#C4BD97';fw='bold';color='#7F6000';}
-      else if(raw==='검진'){disp='검';bg='#fef9c3';fw='bold';color='#854d0e';}
-      else if(raw==='대체'||raw.startsWith('대체(')){disp='대';bg='#FFC000';fw='bold';color='#7d4700';}
+      else if(raw.startsWith('휴가')){disp='휴';bg='#C4BD97';fw='bold';color='#7F6000';vacCount++;}
+      else if(raw==='검진'){disp='검';bg='#fef9c3';fw='bold';color='#854d0e';vacCount++;}
+      else if(raw==='대체'||raw.startsWith('대체(')){disp='대';bg='#FFC000';fw='bold';color='#7d4700';vacCount++;}
       else if(raw){disp='주';bg='#ffffff';fw='bold';}
       else {disp='';bg=isSun?'#fff8f8':isSat?'#f8faff':'#fff';}
 
@@ -2034,6 +2057,7 @@ function buildVacGridHTML(){
 
       cells+=`<td style="text-align:center;width:32px;min-width:32px;height:20px;background:${bg};color:${color};font-weight:${fw};font-size:13px;border:1px solid #d0d0d0;${isToday?'outline:2px solid #3b82f6;':''}">${disp}</td>`;
     }
+    cells+=`<td style="text-align:center;width:42px;min-width:42px;height:20px;background:${vacCount>0?'#fef3c7':'#f9fafb'};color:${vacCount>0?'#92400e':'#9ca3af'};font-weight:900;font-size:13px;border:1px solid #d0d0d0;">${vacCount||'-'}</td>`;
     rows+=`<tr>${cells}</tr>`;
   });
 
@@ -2320,7 +2344,8 @@ function renderBoard(){
 
   allItems.forEach(item=>{
     const safeTitle=esc(item.title);
-    const safeDate=esc(new Date(item.ts).toLocaleDateString('ko-KR'));
+    const _d=new Date(item.ts);
+    const safeDate=esc(_d.toLocaleDateString('ko-KR')+' '+_d.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
     if(item._type==='notice'){
       const isExpired=item.deadline&&new Date(item.deadline)<today;
       const deadlineHtml=(()=>{
@@ -2402,8 +2427,9 @@ loadBoardFromCloud().then(()=>{
   renderBoard();
   renderNoticeBanner();
 });
-// 30초마다 긴급수정 + 공지/투표 한번에 업데이트
+// 30초마다 긴급수정 + 공지/투표 한번에 업데이트 (화면 보고 있을 때만)
 setInterval(async()=>{
+  if(document.visibilityState!=='visible') return;
   await Promise.all([fetchFromCloud(), loadBoardFromCloud()]);
   if(activeTab==='daily') renderDaily(curDay);
   else if(activeTab==='cal') renderCalendar();
@@ -2413,6 +2439,21 @@ setInterval(async()=>{
   }
   else if(activeTab==='board') renderBoard();
 }, 30000);
+
+// 화면 다시 보이면 즉시 새로고침
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'){
+    Promise.all([fetchFromCloud(), loadBoardFromCloud()]).then(()=>{
+      if(activeTab==='daily') renderDaily(curDay);
+      else if(activeTab==='cal') renderCalendar();
+      else if(activeTab==='grid'){
+        if(gridView==='vac'){const el=document.getElementById('grid-view-vac');if(el)el.innerHTML=buildVacGridHTML();}
+        else renderGrid();
+      }
+      else if(activeTab==='board') renderBoard();
+    });
+  }
+});
 </script>
 
 
