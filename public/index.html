@@ -1510,12 +1510,10 @@ function renderDaily(day){
 
       <div class="card" style="margin-top:12px;">
         <div class="card-head" style="cursor:pointer;" onclick="toggleStatCard()">
-          <span class="card-title" style="font-size:12px;letter-spacing:0;">📋 사내 공유용 현황 <span id="stat-caret" style="color:var(--text3);font-weight:400;">▼</span></span>
+          <span class="card-title" style="font-size:12px;letter-spacing:0;">📋 일일 근무자 현황 <span id="stat-caret" style="color:var(--text3);font-weight:400;">▼</span></span>
+          <button class="cbtn" id="d-stat-btn" onclick="event.stopPropagation();statusCopy()">현황 복사</button>
         </div>
         <div id="stat-body" style="display:none;">
-        <div style="display:flex;justify-content:flex-end;padding:0 4px;">
-          <button class="cbtn" id="d-stat-btn" onclick="statusCopy()">현황 복사</button>
-        </div>
         <div style="padding:10px 4px;display:flex;flex-direction:column;gap:10px;">
 
           <div style="display:flex;flex-direction:column;gap:6px;">
