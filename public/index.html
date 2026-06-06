@@ -812,7 +812,7 @@ async function fetchFromCloud(){
 // ── BOARD 캐시 키 ──
 const BOARD_CACHE_KEY='so_board_cache';
 
-let boardData={notices:[],votes:[],vacations:[]};
+let boardData={notices:[],votes:[],vacations:[],statExtra:{}};
 let _boardReadyResolve;
 const boardReady=new Promise(res=>{_boardReadyResolve=res;});
 
@@ -829,6 +829,7 @@ async function loadBoardFromCloud(){
     const res=await fetch('/api/board');
     const r=await res.json();
     if(r&&r.notices){
+      if(!r.statExtra) r.statExtra={};
       boardData=r;
       localStorage.setItem(BOARD_CACHE_KEY,JSON.stringify(r));
     }
@@ -886,6 +887,7 @@ function esc(v){
   }[m]));
 }
 function nl2br(v){return esc(v).replace(/\n/g,'<br>');}
+function pad(n){return String(n).padStart(2,'0');}
 
 // 토스트 알림
 function toast(msg, type){
@@ -1282,6 +1284,140 @@ function msgText(day,g){
   return t;
 }
 
+// ── 사내 일일근무자현황 ──
+const RANK_CORE=["박형근","유석현","백승일","김석균","노광래","김용삼","최종선","김구선","함민수","양태훈","김윤섭"];
+const RANK_SVC=["최휘진","이승일","한익진","이상기","정보용","허도훈","이대성","김진택","김명준","천승민","정원재"];
+// 현장대리인 우선순위 (분류용 RANK와 별개)
+const CORE_RANK=["유석현","박형근","백승일","김석균","최종선","노광래","김용삼","김구선","양태훈","함민수","김윤섭"];
+const SVC_RANK=["최휘진","이승일","한익진","이상기","정보용","허도훈","이대성","김진택","김명준","천승민","정원재"];
+function topRank(names, rankList){
+  if(!names||!names.length) return '';
+  let best=null, bestIdx=Infinity;
+  names.forEach(n=>{
+    const idx=rankList.indexOf(n);
+    const score=idx<0?Infinity:idx;
+    if(score<bestIdx){bestIdx=score;best=n;}
+  });
+  return best||names[0];
+}
+
+function statOff(v){return !v||v==='공휴'||v==='비'||v==='숙'||v.startsWith('휴가')||v.startsWith('대체(')||v==='검진';}
+function statNight(v){return v==='야'||v.startsWith('야(');}
+function statGobul(v){return v==='고';}
+function statVoc(v,p){return v==='3'||v==='4'||(p==='SVC'&&v==='고');}
+function statWork(v){return v==='작'||v==='작검'||v==='집작';}
+
+function statGroups(day){
+  const d=String(day), g={dc:[],ds:[],voc:[],nc:[],ns:[],work:[]};
+  const vocMeta={};
+  EMP.forEach(e=>{
+    const v=getVal(e.name,day)||'';
+    if(statOff(v)) return;
+    if(statNight(v)){ (e.part==='CORE'?g.nc:g.ns).push(e.name); return; }
+    if(v==='1'){ g.dc.unshift(e.name); return; }
+    if(v==='2'){ g.ds.unshift(e.name); return; }
+    if(v==='3'){ g.dc.push(e.name); return; }
+    if(v==='4'){ g.ds.push(e.name); return; }
+    if(statGobul(v)||statVoc(v,e.part)||statWork(v)){
+      g.voc.push(e.name); vocMeta[e.name]=e.part;
+      if(statWork(v)) g.work.push(e.name);
+      return;
+    }
+    (e.part==='CORE'?g.dc:g.ds).push(e.name);
+  });
+  function fillUp(target, part, rankList){
+    if(target.length>=2) return;
+    const need=2-target.length;
+    const rank=n=>{const i=rankList.indexOf(n);return i<0?999:i;};
+    const workCands=g.voc.filter(n=>vocMeta[n]===part&&g.work.includes(n)).sort((a,b)=>rank(a)-rank(b));
+    const otherCands=g.voc.filter(n=>vocMeta[n]===part&&!g.work.includes(n)).sort((a,b)=>rank(a)-rank(b));
+    const cands=[...workCands,...otherCands];
+    for(let i=0;i<need&&i<cands.length;i++){
+      const name=cands[i];
+      target.push(name);
+      g.voc.splice(g.voc.indexOf(name),1);
+      delete vocMeta[name];
+    }
+  }
+  fillUp(g.dc,'CORE',RANK_CORE);
+  fillUp(g.ds,'SVC',RANK_SVC);
+  const rankAll=[...RANK_CORE,...RANK_SVC];
+  g.voc.sort((a,b)=>{
+    const aW=g.work.includes(a), bW=g.work.includes(b);
+    if(aW!==bW) return aW?1:-1;
+    const ra=rankAll.indexOf(a), rb=rankAll.indexOf(b);
+    return (ra<0?999:ra)-(rb<0?999:rb);
+  });
+  while(g.voc.length>2) g.voc.pop();
+  if(g.voc.length<2){
+    const need=2-g.voc.length;
+    const allWork=g.work.filter(n=>!g.voc.includes(n)&&!g.dc.includes(n)&&!g.ds.includes(n));
+    allWork.sort((a,b)=>{const ra=rankAll.indexOf(a),rb=rankAll.indexOf(b);return (ra<0?999:ra)-(rb<0?999:rb);});
+    for(let i=0;i<need&&i<allWork.length;i++) g.voc.push(allWork[i]);
+  }
+
+  // ── 수동 조정 반영 ──
+  const ex=getStatExtra(day);
+  // 제외
+  if(ex.rm&&ex.rm.length){
+    ['dc','ds','voc','nc','ns'].forEach(k=>{ g[k]=g[k].filter(n=>!ex.rm.includes(n)); });
+  }
+  // 추가
+  if(ex.add){
+    ['dc','ds','voc','nc','ns'].forEach(k=>{
+      (ex.add[k]||[]).forEach(n=>{ if(!g[k].includes(n)) g[k].push(n); });
+    });
+  }
+  return g;
+}
+
+// 전력/대리인/수동조정 값 (KV board에 저장)
+function getStatExtra(day){
+  const key=`${CUR_YEAR}_${pad(CUR_MONTH)}_${day}`;
+  const d=(boardData.statExtra&&boardData.statExtra[key])||{};
+  return {pss:d.pss||'',psy:d.psy||'',pns:d.pns||'',equip:d.equip||'',
+          rep:d.rep||{dc:'',ds:'',nc:'',ns:''},
+          add:d.add||{dc:[],ds:[],voc:[],nc:[],ns:[]},
+          rm:d.rm||[]};
+}
+function setStatExtra(day,field,val){
+  const key=`${CUR_YEAR}_${pad(CUR_MONTH)}_${day}`;
+  if(!boardData.statExtra) boardData.statExtra={};
+  if(!boardData.statExtra[key]) boardData.statExtra[key]={};
+  boardData.statExtra[key][field]=val;
+  clearTimeout(setStatExtra._t);
+  setStatExtra._t=setTimeout(()=>saveBoardToCloud(), 800);
+}
+function setStatRep(day,role,name){
+  const ex=getStatExtra(day);
+  ex.rep[role]=name;
+  setStatExtra(day,'rep',ex.rep);
+  statusPreview(day);
+}
+
+function buildStatusText(day){
+  const g=statGroups(day);
+  const dow=DOW[(START+day-1)%7];
+  const ex=getStatExtra(day);
+  const repDc=ex.rep.dc||topRank(g.dc,CORE_RANK)||'—';
+  const repDs=ex.rep.ds||topRank(g.ds,SVC_RANK)||'—';
+  const repNc=ex.rep.nc||topRank(g.nc,CORE_RANK)||'—';
+  const repNs=ex.rep.ns||topRank(g.ns,SVC_RANK)||'—';
+  let t=`【SO-성수_『일일 근무자현황』_${CUR_MONTH}-${day}(${dow})】\n`;
+  t+=`■ 주간 근무자\n`;
+  t+=`o 현장대리인 : (Core) ${repDc} / (Service) ${repDs}${ex.equip?' / (설비) '+ex.equip:''}\n`;
+  t+=`o Core : ${g.dc.join(', ')||'—'}\n`;
+  t+=`o Service : ${g.ds.join(', ')||'—'}\n`;
+  if(g.voc.length) t+=`o VOC : ${g.voc.join(', ')}\n`;
+  if(ex.pss||ex.psy) t+=`o 전력 : (성수) ${ex.pss||'—'} / (수유) ${ex.psy||'—'}\n`;
+  t+=`\n■ 야간 근무자\n`;
+  t+=`o 현장대리인 : (Core) ${repNc} / (Service) ${repNs}\n`;
+  t+=`o Core : ${g.nc.join(', ')||'—'}\n`;
+  t+=`o Service : ${g.ns.join(', ')||'—'}`;
+  if(ex.pns) t+=`\no 전력 : (성수) ${ex.pns}`;
+  return t;
+}
+
 function shiftRows(g){
   const myName=getMyName();
   const secs=[
@@ -1346,6 +1482,8 @@ function renderDaily(day){
   smsDayOverride=day;
   const dow=DOW[(START+day-1)%7];
   const g=groups(day);
+  const _statEx=getStatExtra(day);
+  const _statG=statGroups(day);
   // override banner
   const ov=loadOv();
   const mods=Object.entries(ov).filter(([k])=>k.endsWith(`_${day}`));
@@ -1368,6 +1506,51 @@ function renderDaily(day){
           <button class="cbtn" id="d-cbtn" onclick="dailyCopy()">문자 복사</button>
         </div>
         ${shiftRows(g)}
+      </div>
+
+      <div class="card" style="margin-top:12px;">
+        <div class="card-head" style="cursor:pointer;" onclick="toggleStatCard()">
+          <span class="card-title" style="font-size:12px;letter-spacing:0;">📋 사내 공유용 현황 <span id="stat-caret" style="color:var(--text3);font-weight:400;">▼</span></span>
+        </div>
+        <div id="stat-body" style="display:none;">
+        <div style="display:flex;justify-content:flex-end;padding:0 4px;">
+          <button class="cbtn" id="d-stat-btn" onclick="statusCopy()">현황 복사</button>
+        </div>
+        <div style="padding:10px 4px;display:flex;flex-direction:column;gap:10px;">
+
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <span style="font-size:11px;font-weight:800;color:var(--accent);">현장대리인</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <span style="font-size:11px;color:var(--text3);min-width:54px;">주간</span>
+              <select onchange="setStatRep(${day},'dc',this.value)" style="flex:1;min-width:90px;padding:6px;border:1px solid var(--border2);border-radius:6px;font-size:12px;font-family:inherit;">${_repOpts(topRank(_statG.dc,CORE_RANK), _statEx.rep.dc, 'CORE')}</select>
+              <select onchange="setStatRep(${day},'ds',this.value)" style="flex:1;min-width:90px;padding:6px;border:1px solid var(--border2);border-radius:6px;font-size:12px;font-family:inherit;">${_repOpts(topRank(_statG.ds,SVC_RANK), _statEx.rep.ds, 'SVC')}</select>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              <span style="font-size:11px;color:var(--text3);min-width:54px;">야간</span>
+              <select onchange="setStatRep(${day},'nc',this.value)" style="flex:1;min-width:90px;padding:6px;border:1px solid var(--border2);border-radius:6px;font-size:12px;font-family:inherit;">${_repOpts(topRank(_statG.nc,CORE_RANK), _statEx.rep.nc, 'CORE')}</select>
+              <select onchange="setStatRep(${day},'ns',this.value)" style="flex:1;min-width:90px;padding:6px;border:1px solid var(--border2);border-radius:6px;font-size:12px;font-family:inherit;">${_repOpts(topRank(_statG.ns,SVC_RANK), _statEx.rep.ns, 'SVC')}</select>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <span style="font-size:11px;font-weight:700;color:var(--text3);min-width:54px;">주간전력</span>
+            <input type="text" placeholder="성수" value="${esc(_statEx.pss)}" oninput="setStatExtra(${day},'pss',this.value);statusPreview(${day})" style="flex:1;min-width:70px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;font-size:12px;font-family:inherit;">
+            <input type="text" placeholder="수유" value="${esc(_statEx.psy)}" oninput="setStatExtra(${day},'psy',this.value);statusPreview(${day})" style="flex:1;min-width:70px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;font-size:12px;font-family:inherit;">
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            <span style="font-size:11px;font-weight:700;color:var(--text3);min-width:54px;">야간전력</span>
+            <input type="text" placeholder="성수" value="${esc(_statEx.pns)}" oninput="setStatExtra(${day},'pns',this.value);statusPreview(${day})" style="flex:1;min-width:70px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;font-size:12px;font-family:inherit;">
+            <input type="text" placeholder="설비대리인(선택)" value="${esc(_statEx.equip)}" oninput="setStatExtra(${day},'equip',this.value);statusPreview(${day})" style="flex:1;min-width:70px;padding:6px 8px;border:1px solid var(--border2);border-radius:6px;font-size:12px;font-family:inherit;">
+          </div>
+
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button onclick="openStatEdit(${day})" style="font-size:12px;font-weight:700;padding:6px 12px;border-radius:6px;border:1.5px solid var(--border2);background:var(--bg);color:var(--text2);cursor:pointer;font-family:inherit;">✏️ 명단 수동조정</button>
+            <button onclick="resetStatExtra(${day})" style="font-size:12px;font-weight:700;padding:6px 12px;border-radius:6px;border:1.5px solid #fecaca;background:#fff5f5;color:#dc2626;cursor:pointer;font-family:inherit;">초기화</button>
+          </div>
+
+          <pre id="stat-preview" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;line-height:1.5;white-space:pre-wrap;word-break:break-all;font-family:inherit;margin:0;color:#334155;">${esc(buildStatusText(day))}</pre>
+        </div>
+        </div>
       </div>
     </div>`;
 }
@@ -1398,6 +1581,110 @@ function chDay(d){const n=curDay+d;if(n>=1&&n<=DAYS)renderDaily(n);}
 function dailyCopy(){
   const g=groups(curDay);
   copyText(msgText(curDay,g), document.getElementById('d-cbtn'), '문자 복사');
+}
+function statusCopy(){
+  copyText(buildStatusText(curDay), document.getElementById('d-stat-btn'), '현황 복사');
+}
+function toggleStatCard(){
+  const b=document.getElementById('stat-body');
+  const c=document.getElementById('stat-caret');
+  if(!b) return;
+  const open=b.style.display==='none';
+  b.style.display=open?'block':'none';
+  if(c) c.textContent=open?'▲':'▼';
+}
+function statusPreview(day){
+  const el=document.getElementById('stat-preview');
+  if(el) el.textContent=buildStatusText(day);
+}
+// 현장대리인 드롭다운 옵션 (자동값 + 전체 인원)
+function _repOpts(autoName, selName, part){
+  const rankList=part==='CORE'?CORE_RANK:SVC_RANK;
+  const cur=selName||autoName;
+  let opts=`<option value="">${part} 대리인 ${autoName?`(자동: ${autoName})`:''}</option>`;
+  rankList.forEach(n=>{
+    opts+=`<option value="${n}"${n===cur?' selected':''}>${n}</option>`;
+  });
+  return opts;
+}
+function resetStatExtra(day){
+  if(!confirm('이 날짜의 전력·대리인·수동조정을 모두 초기화할까요?')) return;
+  const key=`${CUR_YEAR}_${pad(CUR_MONTH)}_${day}`;
+  if(boardData.statExtra&&boardData.statExtra[key]){
+    delete boardData.statExtra[key];
+    saveBoardToCloud();
+  }
+  renderDaily(day);
+}
+// 명단 수동조정 모달
+function openStatEdit(day){
+  const g=statGroups(day);
+  const ex=getStatExtra(day);
+  const allNames=[...RANK_CORE,...RANK_SVC];
+  const zones=[{k:'dc',lbl:'주간 Core'},{k:'ds',lbl:'주간 Service'},{k:'voc',lbl:'VOC'},{k:'nc',lbl:'야간 Core'},{k:'ns',lbl:'야간 Service'}];
+  let body='';
+  zones.forEach(z=>{
+    body+=`<div style="margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:800;color:var(--text2);margin-bottom:5px;">${z.lbl}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px;">
+        ${g[z.k].map(n=>`<span style="display:inline-flex;align-items:center;gap:3px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:14px;padding:3px 8px;font-size:12px;">${n}<span onclick="statRemove(${day},'${n}')" style="cursor:pointer;color:#dc2626;font-weight:800;">✕</span></span>`).join('')||'<span style="font-size:11px;color:var(--text3);">없음</span>'}
+      </div>
+      <select onchange="statAdd(${day},'${z.k}',this.value);this.value=''" style="width:100%;padding:6px;border:1px solid var(--border2);border-radius:6px;font-size:12px;font-family:inherit;">
+        <option value="">+ ${z.lbl}에 추가</option>
+        ${allNames.filter(n=>!g[z.k].includes(n)).map(n=>`<option value="${n}">${n}</option>`).join('')}
+      </select>
+    </div>`;
+  });
+  const modal=document.createElement('div');
+  modal.id='stat-edit-modal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  modal.innerHTML=`<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;padding:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <span style="font-size:15px;font-weight:800;">${CUR_MONTH}/${day} 명단 수동조정</span>
+      <span onclick="closeStatEdit()" style="cursor:pointer;font-size:20px;color:var(--text3);">✕</span>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5;">갑작스런 휴가·대타 등 변수를 여기서 직접 조정하세요. 변경사항은 팀원 모두에게 공유됩니다.</div>
+    ${body}
+    <button onclick="closeStatEdit()" style="width:100%;margin-top:8px;padding:10px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">완료</button>
+  </div>`;
+  modal.onclick=e=>{if(e.target===modal)closeStatEdit();};
+  document.body.appendChild(modal);
+}
+function closeStatEdit(){
+  const m=document.getElementById('stat-edit-modal');
+  if(m) m.remove();
+  renderDaily(curDay);
+}
+function _saveStatNow(day){
+  clearTimeout(setStatExtra._t);
+  saveBoardToCloud();
+}
+function statRemove(day,name){
+  const ex=getStatExtra(day);
+  const key=`${CUR_YEAR}_${pad(CUR_MONTH)}_${day}`;
+  if(!boardData.statExtra) boardData.statExtra={};
+  let inAdd=false;
+  ['dc','ds','voc','nc','ns'].forEach(k=>{
+    if(ex.add[k]&&ex.add[k].includes(name)){ ex.add[k]=ex.add[k].filter(n=>n!==name); inAdd=true; }
+  });
+  if(!inAdd){ if(!ex.rm.includes(name)) ex.rm.push(name); }
+  boardData.statExtra[key]={...(boardData.statExtra[key]||{}),add:ex.add,rm:ex.rm};
+  _saveStatNow(day);
+  closeStatEdit();
+  openStatEdit(day);
+}
+function statAdd(day,zone,name){
+  if(!name) return;
+  const ex=getStatExtra(day);
+  const key=`${CUR_YEAR}_${pad(CUR_MONTH)}_${day}`;
+  if(!boardData.statExtra) boardData.statExtra={};
+  if(ex.rm.includes(name)) ex.rm=ex.rm.filter(n=>n!==name);
+  if(!ex.add[zone]) ex.add[zone]=[];
+  if(!ex.add[zone].includes(name)) ex.add[zone].push(name);
+  boardData.statExtra[key]={...(boardData.statExtra[key]||{}),add:ex.add,rm:ex.rm};
+  _saveStatNow(day);
+  closeStatEdit();
+  openStatEdit(day);
 }
 function clearDayDaily(day){
   const ov=loadOv();
