@@ -1403,17 +1403,33 @@ function buildStatusText(day){
   const repDs=ex.rep.ds||topRank(g.ds,SVC_RANK)||'—';
   const repNc=ex.rep.nc||topRank(g.nc,CORE_RANK)||'—';
   const repNs=ex.rep.ns||topRank(g.ns,SVC_RANK)||'—';
+  // 짬순 정렬 + 대리인 맨 앞
+  function ordered(names, rankList, rep){
+    const sorted=[...names].sort((a,b)=>{
+      const ra=rankList.indexOf(a), rb=rankList.indexOf(b);
+      return (ra<0?999:ra)-(rb<0?999:rb);
+    });
+    if(rep&&rep!=='—'&&sorted.includes(rep)){
+      return [rep,...sorted.filter(n=>n!==rep)];
+    }
+    return sorted;
+  }
+  const dcList=ordered(g.dc,RANK_CORE,repDc);
+  const dsList=ordered(g.ds,RANK_SVC,repDs);
+  const ncList=ordered(g.nc,RANK_CORE,repNc);
+  const nsList=ordered(g.ns,RANK_SVC,repNs);
+  const vocList=ordered(g.voc,[...RANK_CORE,...RANK_SVC],null);
   let t=`【SO-성수_『일일 근무자현황』_${CUR_MONTH}-${day}(${dow})】\n`;
   t+=`■ 주간 근무자\n`;
   t+=`o 현장대리인 : (Core) ${repDc} / (Service) ${repDs}${ex.equip?' / (설비) '+ex.equip:''}\n`;
-  t+=`o Core : ${g.dc.join(', ')||'—'}\n`;
-  t+=`o Service : ${g.ds.join(', ')||'—'}\n`;
-  if(g.voc.length) t+=`o VOC : ${g.voc.join(', ')}\n`;
+  t+=`o Core : ${dcList.join(', ')||'—'}\n`;
+  t+=`o Service : ${dsList.join(', ')||'—'}\n`;
+  if(vocList.length) t+=`o VOC : ${vocList.join(', ')}\n`;
   if(ex.pss||ex.psy) t+=`o 전력 : (성수) ${ex.pss||'—'} / (수유) ${ex.psy||'—'}\n`;
   t+=`\n■ 야간 근무자\n`;
   t+=`o 현장대리인 : (Core) ${repNc} / (Service) ${repNs}\n`;
-  t+=`o Core : ${g.nc.join(', ')||'—'}\n`;
-  t+=`o Service : ${g.ns.join(', ')||'—'}`;
+  t+=`o Core : ${ncList.join(', ')||'—'}\n`;
+  t+=`o Service : ${nsList.join(', ')||'—'}`;
   if(ex.pns) t+=`\no 전력 : (성수) ${ex.pns}`;
   return t;
 }
