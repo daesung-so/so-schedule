@@ -1217,7 +1217,7 @@ function tp(v,part){
   if(v==='비')return 'off';
   if(v==='후반')return 'half';
   if(v==='오반')return 'halfam';
-  if(v==='검진')return 'checkup';
+  if(v==='FD'||v==='공가') return 'vacation';
   if(v==='대체'||v.startsWith('대체('))return 'altwork';
   if(v.startsWith('휴가')||v.startsWith('대체('))return 'vacation';
   if(v==='야'||v.startsWith('야('))return 'night';
@@ -1230,6 +1230,7 @@ function tp(v,part){
 function sh(v){
   if(!v||v==='공휴')return '공';if(v==='비')return '비';
   if(v==='후반')return '후반';if(v==='오반')return '오반';if(v==='검진')return '검';
+  if(v==='FD')return 'FD';if(v==='공가')return '공가';
   if(v==='대체'||v.startsWith('대체('))return '대';
   if(v.startsWith('휴가'))return '휴';
   if(v==='야'||v.startsWith('야('))return '야';
@@ -1301,7 +1302,7 @@ function topRank(names, rankList){
   return best||names[0];
 }
 
-function statOff(v){return !v||v==='공휴'||v==='비'||v==='숙'||v.startsWith('휴가')||v.startsWith('대체(')||v==='검진';}
+function statOff(v){return !v||v==='공휴'||v==='비'||v==='숙'||v.startsWith('휴가')||v.startsWith('대체(')||v==='대체'||v==='검진'||v==='FD'||v==='공가';}
 function statNight(v){return v==='야'||v.startsWith('야(');}
 function statGobul(v){return v==='고';}
 function statVoc(v,p){return v==='3'||v==='4'||(p==='SVC'&&v==='고');}
@@ -2347,7 +2348,7 @@ function buildVacGridHTML(){
       if(raw==='야'||raw.startsWith('야(')){disp='야';bg='#ffffff';fw='bold';}
       else if(raw==='숙'){disp='숙';bg='#ffffff';fw='bold';}
       else if(raw==='비'||raw==='공휴'){disp='비';bg='#92D050';fw='normal';color='#375623';}
-      else if(raw.startsWith('휴가')){disp='휴';bg='#C4BD97';fw='bold';color='#7F6000';vacCount++;}
+      else if(raw.startsWith('휴가')||raw==='FD'||raw==='공가'){disp='휴';bg='#C4BD97';fw='bold';color='#7F6000';vacCount++;}
       else if(raw==='검진'){disp='검';bg='#fef9c3';fw='bold';color='#854d0e';vacCount++;}
       else if(raw==='대체'||raw.startsWith('대체(')){disp='대';bg='#FFC000';fw='bold';color='#7d4700';vacCount++;}
       else if(raw){disp='주';bg='#ffffff';fw='bold';}
