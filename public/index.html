@@ -1426,7 +1426,12 @@ function buildStatusText(day){
   t+=`o Core : ${dcList.join(', ')||'—'}\n`;
   t+=`o Service : ${dsList.join(', ')||'—'}\n`;
   if(vocList.length) t+=`o VOC : ${vocList.join(', ')}\n`;
-  if(ex.pss||ex.psy) t+=`o 전력 : (성수) ${ex.pss||'—'} / (수유) ${ex.psy||'—'}\n`;
+  if(ex.pss||ex.psy){
+    let pwr=`o 전력 :`;
+    if(ex.pss) pwr+=` (성수) ${ex.pss}`;
+    if(ex.psy) pwr+=`${ex.pss?' /':''} (수유) ${ex.psy}`;
+    t+=pwr+'\n';
+  }
   t+=`\n■ 야간 근무자\n`;
   t+=`o 현장대리인 : (Core) ${repNc} / (Service) ${repNs}\n`;
   t+=`o Core : ${ncList.join(', ')||'—'}\n`;
@@ -1568,6 +1573,7 @@ function renderDaily(day){
         </div>
       </div>
     </div>`;
+  restoreStatCard();
 }
 function copyText(text, btn, label='문자 복사'){
   const done=()=>{
@@ -1607,6 +1613,14 @@ function toggleStatCard(){
   const open=b.style.display==='none';
   b.style.display=open?'block':'none';
   if(c) c.textContent=open?'▲':'▼';
+  window._statOpen=open;
+}
+// 리렌더링 후 열림 상태 복원
+function restoreStatCard(){
+  if(!window._statOpen) return;
+  const b=document.getElementById('stat-body');
+  const c=document.getElementById('stat-caret');
+  if(b){b.style.display='block'; if(c) c.textContent='▲';}
 }
 function statusPreview(day){
   const el=document.getElementById('stat-preview');
