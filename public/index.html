@@ -2284,6 +2284,37 @@ function getVacPlansForMonth(){
 }
 
 // ── VAC GRID ──
+// vacGridMonth용 데이터 조회 — overrides/업로드/BUILTIN/패턴 순으로 폴백
+function getValForVacMonth(name, day, year, month){
+  // 1. 긴급수정 overrides
+  const mk=monthKey(year, month);
+  try{
+    const ov=JSON.parse(localStorage.getItem(mk)||'{}');
+    const k=`${name}_${day}`;
+    if(ov[k]) return ov[k].val;
+  }catch(e){}
+  // 2. 업로드된 근무표
+  try{
+    const emp=JSON.parse(localStorage.getItem(empKey(year, month))||'null');
+    if(emp){
+      const e=emp.find(e=>e.name===name);
+      if(e&&e.s[String(day)]!==undefined) return e.s[String(day)];
+    }
+  }catch(e){}
+  // 3. BUILTIN_MONTHS
+  const bk=`${year}_${pad(month)}`;
+  const builtin=BUILTIN_MONTHS[bk];
+  if(builtin){
+    const e=builtin.find(e=>e.name===name);
+    if(e&&e.s[String(day)]!==undefined) return e.s[String(day)];
+  }
+  // 4. SVC/CORE_PATTERN
+  const svcD=SVC_PATTERN[String(month)]?.data?.[name];
+  if(svcD&&svcD[String(day)]!==undefined) return svcD[String(day)];
+  const coreD=CORE_PATTERN[String(month)]?.data?.[name];
+  if(coreD&&coreD[String(day)]!==undefined) return coreD[String(day)];
+  return '';
+}
 let vacGridMonth=new Date().getMonth()+1;
 
 function buildVacGridHTML(){
@@ -2314,7 +2345,7 @@ function buildVacGridHTML(){
   const VAC_STYLE={bg:'#C4BD97',color:'#7F6000',fw:'bold'};
   const VAC_LABEL={'연차':'휴','반차':'반','대체':'대','병가':'병','검진':'검','기타':'기'};
 
-  // 월 네비게이션: ◀ N월 ▶
+  // 월 네비게이션: ◀ N월 ▶ (1~12월 전체 허용)
   const canPrevMonth=vacGridMonth>1;
   const canNextMonth=vacGridMonth<12;
   const monthNav=`<div style="display:flex;align-items:center;gap:8px;">
@@ -2362,8 +2393,8 @@ function buildVacGridHTML(){
         continue;
       }
 
-      // 근무 패턴 — getVal로 overrides 우선 읽기
-      let raw=getVal(name,d)||'';
+      // 근무 패턴 — vacGridMonth 전용 조회
+      let raw=getValForVacMonth(name, d, year, vacGridMonth);
 
       // 야/숙/비/휴가/대체 외 모든 값 = 주간
       let disp=''; let bg=''; let color='#333'; let fw='normal';
