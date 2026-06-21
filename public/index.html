@@ -763,17 +763,26 @@ const JKEY='';        // KV로 대체됨
 
 function getAllOv(){
   const all={};
+  // month_list (어떤 달이 있는지 목록)
+  const ml=localStorage.getItem('month_list');
+  if(ml) try{all['month_list']=JSON.parse(ml);}catch(e){}
   getSortedMonths().forEach(m=>{
     const k=monthKey(m.year,m.month);
     const d=localStorage.getItem(k);
     if(d) try{all[k]=JSON.parse(d);}catch(e){}
+    // 업로드된 근무표 데이터도 함께 동기화
+    const ek=empKey(m.year,m.month);
+    const ed=localStorage.getItem(ek);
+    if(ed) try{all[ek]=JSON.parse(ed);}catch(e){}
   });
   return all;
 }
 function applyAllOv(all){
   if(!all||typeof all!=='object') return;
+  if(all['month_list']) localStorage.setItem('month_list',JSON.stringify(all['month_list']));
   Object.entries(all).forEach(([k,v])=>{
-    if(k.startsWith('sch_ov_')) localStorage.setItem(k,JSON.stringify(v));
+    if(k.startsWith('sch_ov_')||k.startsWith('sch_emp_'))
+      localStorage.setItem(k,JSON.stringify(v));
   });
 }
 
@@ -1085,6 +1094,7 @@ function handleXlsx(file){
       const list=getStoredMonths();
       if(!list.find(m=>m.year===py&&m.month===pm)){list.push({year:py,month:pm});saveMonthList(list);}
       switchMonth(py,pm);
+      syncToCloud(); // 모바일 등 다른 기기에 전파
       alert(`✅ ${py}년 ${pm}월 근무표 업로드 완료!\n직원 ${employees.length}명 / ${pdays}일치 데이터`);
     }catch(err){
       alert('파일 읽기 오류: '+err.message+'\n\n'+err.stack);
