@@ -456,9 +456,8 @@ th,td{white-space:nowrap;padding:0;}
 
 <div class="tabs with-bar">
   <div class="tab active" id="tab-daily" onclick="switchTab('daily')">📋 일별</div>
-  <div class="tab" id="tab-cal" onclick="switchTab('cal')">📅 달력</div>
-  <div class="tab" id="tab-grid" onclick="switchTab('grid')">📊 전체표</div>
-  <div class="tab" id="tab-board" onclick="switchTab('board')">📢 공지</div>
+  <div class="tab" id="tab-grid" onclick="switchTab('grid');setGridView('grid')">📊 근무표</div>
+  <div class="tab" id="tab-vac" onclick="switchTab('grid');setGridView('vac')">🌴 휴가표</div>
 </div>
 
 <div id="panel-daily" class="panel active">
@@ -1919,10 +1918,6 @@ function renderGrid(){
 
   document.getElementById('panel-grid').innerHTML=`
     <div class="grid-wrap">
-      <div style="display:flex;gap:8px;margin-bottom:10px;">
-        <button class="btype-btn on" id="grid-toggle-sched" onclick="setGridView('sched')" style="flex:none;padding:7px 18px;">📊 근무표</button>
-        <button class="btype-btn" id="grid-toggle-vac" onclick="setGridView('vac')" style="flex:none;padding:7px 18px;">🌴 휴가표</button>
-      </div>
       <div id="grid-view-sched">
         <div class="grid-controls">${btns}</div>
         <div class="grid-container">
@@ -1943,18 +1938,20 @@ function renderGrid(){
 let gridView='sched'; // 'sched' or 'vac'
 function setGridView(v){
   gridView=v;
+  // 탭 활성화 동기화
+  document.getElementById('tab-grid')?.classList.toggle('active', v==='sched'||v==='grid');
+  document.getElementById('tab-vac')?.classList.toggle('active', v==='vac');
   const sSched=document.getElementById('grid-view-sched');
   const sVac=document.getElementById('grid-view-vac');
   const tSched=document.getElementById('grid-toggle-sched');
   const tVac=document.getElementById('grid-toggle-vac');
   if(!sSched) return;
-  if(v==='sched'){
+  if(v==='sched'||v==='grid'){
     sSched.style.display=''; sVac.style.display='none';
-    tSched.classList.add('on'); tVac.classList.remove('on');
+    tSched?.classList.add('on'); tVac?.classList.remove('on');
   } else {
     sSched.style.display='none'; sVac.style.display='';
-    tSched.classList.remove('on'); tVac.classList.add('on');
-    // 휴가표 렌더링
+    tSched?.classList.remove('on'); tVac?.classList.add('on');
     const vEl=document.getElementById('grid-view-vac');
     if(vEl) vEl.innerHTML=buildVacGridHTML();
   }
@@ -2028,12 +2025,19 @@ function switchTab(tab){
   activeTab=tab;
   closePopup();
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
+  const tabEl=document.getElementById('tab-'+tab);
+  if(tabEl) tabEl.classList.add('active');
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  document.getElementById('panel-'+tab).classList.add('active');
+  document.getElementById('panel-'+tab)?.classList.add('active');
   window.scrollTo(0,0);
   if(tab==='daily')renderDaily(curDay);
-  if(tab==='grid')renderGrid();
+  if(tab==='grid'){
+    if(gridView==='vac'){
+      document.getElementById('tab-vac')?.classList.add('active');
+      document.getElementById('tab-grid')?.classList.remove('active');
+      const el=document.getElementById('grid-view-vac');if(el)el.innerHTML=buildVacGridHTML();
+    } else renderGrid();
+  }
   if(tab==='cal'){renderMonthNav();renderCalendar();}
   if(tab==='board'){
     renderBoard();
@@ -2493,12 +2497,11 @@ function renderNoticeBanner(){
   const sub=isVote
     ?`🗳 투표 · ${item.deadline?esc(item.deadline)+' 마감':'마감일 없음'}`
     :`📌 공지${item.deadline?' · '+esc(item.deadline)+' 까지':''}`;
-  area.innerHTML=`<div class="notice-top-banner${isVote?' vote':''}" onclick="switchTab('board')">
+  area.innerHTML=`<div class="notice-top-banner${isVote?' vote':''}" style="cursor:default">
     <div>
       <div class="notice-top-banner-text">${esc(item.title)}</div>
       <div class="notice-top-banner-sub">${sub}</div>
     </div>
-    <div class="notice-top-banner-arrow">보기 ›</div>
   </div>`;
   if(bannerList.length>1){
     clearTimeout(renderNoticeBanner._timer);
