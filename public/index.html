@@ -721,8 +721,17 @@ const DOW=['일','월','화','수','목','금','토'];
 const _now=new Date();
 const _initYear=_now.getFullYear(), _initMonth=_now.getMonth()+1;
 const _initKey=`${_initYear}_${String(_initMonth).padStart(2,'0')}`;
-let EMP=BUILTIN_MONTHS[_initKey]||BUILTIN_MONTHS[Object.keys(BUILTIN_MONTHS).sort().pop()]||[];
-let CUR_YEAR=EMP.length?_initYear:parseInt(Object.keys(BUILTIN_MONTHS).sort().pop().split('_')[0]);
+// EMP 초기화 — 업로드 데이터 → BUILTIN 순으로 폴백
+function _loadEmpForMonth(year, month){
+  try{
+    const stored=localStorage.getItem(`sch_emp_${year}_${String(month).padStart(2,'0')}`);
+    if(stored){const d=JSON.parse(stored);if(d&&d.length)return d;}
+  }catch(e){}
+  const bk=`${year}_${String(month).padStart(2,'0')}`;
+  return BUILTIN_MONTHS[bk]||null;
+}
+let EMP=_loadEmpForMonth(_initYear,_initMonth)||BUILTIN_MONTHS[Object.keys(BUILTIN_MONTHS).sort().pop()]||[];
+let CUR_YEAR=_initYear;
 let CUR_MONTH=EMP.length?_initMonth:parseInt(Object.keys(BUILTIN_MONTHS).sort().pop().split('_')[1]);
 if(!EMP.length){EMP=BUILTIN_MONTHS[`${CUR_YEAR}_${String(CUR_MONTH).padStart(2,'0')}`]||[];}
 let START=new Date(CUR_YEAR,CUR_MONTH-1,1).getDay();
